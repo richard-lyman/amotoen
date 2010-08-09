@@ -8,7 +8,7 @@
     You must not remove this notice, or any other, from this software.
 
 
-Origin and Pronunciation
+Name and Pronunciation
 ------------------------
 
 There is a PEG/Packrat library *Neotoma* (a scientific classification for pack 
