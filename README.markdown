@@ -79,4 +79,4 @@ Grammar Definitions
 
 The JSON grammar used above is shown in the following gist:
 
-<script src="http://gist.github.com/514922.js"> </script>
+<script src="http://gist.github.com/514922#file_amotoen_json_grammar.clj"> </script>
