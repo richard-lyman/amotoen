@@ -18,6 +18,7 @@ to a unique name that might have been tangentially related to PEGs. You might ev
 successfully define 'shortest path' as some stream-of-consciousness process.
 
 I tend to pronounce Amotoen with a phonetic style that follows: Ah-moe-toe-in.
+I tend to place emphasis on the 'toe'.
 
 
 Introduction
@@ -25,7 +26,7 @@ Introduction
 
 Amotoen is a Clojure library that supports PEG style definitions of grammars.
 While there are academic papers available that rigorously define PEG, I've found
-that PEGs, or _P_arsing _E_xpression _G_rammar(s), are best explained by the 
+that PEGs, or **P**arsing **E**xpression **G**rammar(s), are best explained by the 
 [related Wikipedia page](http://en.wikipedia.org/wiki/Parsing_expression_grammar).
 
 The clj-peg library was a predecessor to Amotoen and as such, Amotoen keeps the 
