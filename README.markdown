@@ -13,7 +13,7 @@ Origin and Pronunciation
 
 There is a PEG/Packrat library *Neotoma* (a scientific classification for pack 
 rats) -- Amotoen is Neotoma written in reverse, not that there is any particular 
-quality or relationship between the two; I was just taking the shortest path 
+quality or relationship shared between the two; I was just taking the shortest path 
 to a unique name that might have been tangentially related to PEGs. You might even 
 successfully define 'shortest path' as some stream-of-consciousness process.
 
