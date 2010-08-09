@@ -40,6 +40,7 @@ time expansion of a grammar. Amotoen uses protocols instead of interfaces. Amoto
 uses internally defined Throwables instead of gen-classed Errors. All of these changes
 result in far greater ease of use as well as increased maintainence.
 
+
 Sample Use
 ----------
 
@@ -47,11 +48,13 @@ Using Amotoen is very simple.
 Obviously you'll need to download either the ZIP or JAR to somewhere, then run the REPL 
 referencing the clojure JAR as well as either the amotoen JAR or ZIP, whichever you downloaded:
 
-    java -cp somewhere/amotoen.zip:somewhere_else/clojure.jar clojure.main
+    java -cp somewhere/amotoen.zip:somewhere_else/clojure.jar:somewhere_else/clojure-contrib.jar clojure.main
 
 In the REPL load some basic libraries:
 
-    user=> (use '(com.lithinos.amotoen core string-wrapper) '(com.lithinos.amotoen.grammars json))
+    user=> (use '(clojure.contrib pprint)
+                '(com.lithinos.amotoen core string-wrapper) 
+                '(com.lithinos.amotoen.grammars json))
     
 Use the provided JSON grammar to create a JSON parser:
 
@@ -60,9 +63,55 @@ Use the provided JSON grammar to create a JSON parser:
 Throw some JSON at your parser (after wrapping it in the provided string-wrapper) and 
 you'll see the structure resulting from that particular grammar:
 
-    user=> (jsonp (wrap-string "1"))
-    {:JSONRoot [{:_* ""} ({:Value {:JSONNumber {:Int {:Digit "1"}}}}) {:_* ""} {:$ :EOF}]}
+    user=> (pprint (jsonp (wrap-string "1")))
+    {:JSONRoot
+     [{:_* ""}
+      ({:Value {:JSONNumber {:Int {:Digit "1"}}}})
+      {:_* ""}
+      {:$ :EOF}]}
+
 
 That resulting structure is a native Clojure data structure, nothing special about it.
 
 
+Grammar Definitions
+-------------------
+
+The JSON grammar used above is as follows:
+
+    (def grammar {
+        :Start                  :JSONRoot
+        :_*                     #"^[\n\r\t ]*"
+        :JSONRoot               [ :_* '(* :Value) :_* :$]
+        :Value                  '(| :JSONString :JSONNumber :JSONObject :Array "true" "false" "null")
+    ; Objects
+        :JSONObject             '(| :EmptyObject :ContainingObject)
+            :EmptyObject        ["{" :_* "}"]
+            :ContainingObject   ["{" :_* :Members :_* "}"]
+        :Members                '(| [:Pair :_* "," :_* :Members] :Pair)
+        :Pair                   [:JSONString :_* ":" :_* :Value]
+    ; Arrays
+        :Array                  '(| :EmptyArray :ContainingArray)
+            :EmptyArray         ["[" :_* "]"]
+            :ContainingArray    ["[" :_* :Elements :_* "]"]
+        :Elements               '(| [:Value :_* "," :_* :Elements] :Value)
+    ; Strings
+        :JSONString             '(| :EmptyString :ContainingString)
+            :EmptyString        ["\"" "\""]
+            :ContainingString   ["\"" :Chars "\""]
+        :Chars                  '(+ [(! :ControlCharacter) :Char])
+        :ControlCharacter       #"^[\u0000-\u001F]"
+        :Char                   '(| :EscapedChar [(! "\"") :NonEscapedChar])
+            :EscapedChar        ["\\" '(|   "\"" "\\" "/" "b" "f" "n" "r" "t" :Unicode)]
+                :Unicode        ["u" :HexDigit :HexDigit :HexDigit :HexDigit]
+                :HexDigit       #"^[0-9A-Fa-f]"
+            :NonEscapedChar     #"^."    ; This is OK since the only way it's used is with appropriate guards.
+    ; Numbers
+        :JSONNumber             '(| [:Int :Frac :Exp] [:Int :Exp] [:Int :Frac] :Int)
+            :Int                '(| ["-" :Digit1-9 :Digits] ["-" :Digit] [:Digit1-9 :Digits] :Digit)
+            :Frac               ["." :Digits]
+            :Exp                [:ExpLeader :Digits]
+                :Digit          #"^[0-9]"
+                :Digit1-9       #"^[1-9]"
+                :Digits         #"^[0-9]+"
+                :ExpLeader      [#"^[eE]" #"^[+-]*"]})
