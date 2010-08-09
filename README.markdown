@@ -77,41 +77,6 @@ That resulting structure is a native Clojure data structure, nothing special abo
 Grammar Definitions
 -------------------
 
-The JSON grammar used above is as follows:
+The JSON grammar used above is shown in the following gist:
 
-    (def grammar {
-        :Start                  :JSONRoot
-        :_*                     #"^[\n\r\t ]*"
-        :JSONRoot               [ :_* '(* :Value) :_* :$]
-        :Value                  '(| :JSONString :JSONNumber :JSONObject :Array "true" "false" "null")
-    ; Objects
-        :JSONObject             '(| :EmptyObject :ContainingObject)
-            :EmptyObject        ["{" :_* "}"]
-            :ContainingObject   ["{" :_* :Members :_* "}"]
-        :Members                '(| [:Pair :_* "," :_* :Members] :Pair)
-        :Pair                   [:JSONString :_* ":" :_* :Value]
-    ; Arrays
-        :Array                  '(| :EmptyArray :ContainingArray)
-            :EmptyArray         ["[" :_* "]"]
-            :ContainingArray    ["[" :_* :Elements :_* "]"]
-        :Elements               '(| [:Value :_* "," :_* :Elements] :Value)
-    ; Strings
-        :JSONString             '(| :EmptyString :ContainingString)
-            :EmptyString        ["\"" "\""]
-            :ContainingString   ["\"" :Chars "\""]
-        :Chars                  '(+ [(! :ControlCharacter) :Char])
-        :ControlCharacter       #"^[\u0000-\u001F]"
-        :Char                   '(| :EscapedChar [(! "\"") :NonEscapedChar])
-            :EscapedChar        ["\\" '(|   "\"" "\\" "/" "b" "f" "n" "r" "t" :Unicode)]
-                :Unicode        ["u" :HexDigit :HexDigit :HexDigit :HexDigit]
-                :HexDigit       #"^[0-9A-Fa-f]"
-            :NonEscapedChar     #"^."    ; This is OK since the only way it's used is with appropriate guards.
-    ; Numbers
-        :JSONNumber             '(| [:Int :Frac :Exp] [:Int :Exp] [:Int :Frac] :Int)
-            :Int                '(| ["-" :Digit1-9 :Digits] ["-" :Digit] [:Digit1-9 :Digits] :Digit)
-            :Frac               ["." :Digits]
-            :Exp                [:ExpLeader :Digits]
-                :Digit          #"^[0-9]"
-                :Digit1-9       #"^[1-9]"
-                :Digits         #"^[0-9]+"
-                :ExpLeader      [#"^[eE]" #"^[+-]*"]})
+<script src="http://gist.github.com/514922.js"> </script>
