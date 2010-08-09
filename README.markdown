@@ -44,7 +44,7 @@ result in far greater ease of use as well as increased maintainence.
 Sample Use
 ----------
 
-Using Amotoen is very simple.
+Using Amotoen is very simple, and **requires Clojure 1.2**.
 Obviously you'll need to download either the ZIP or JAR to somewhere, then run the REPL 
 referencing the clojure JAR as well as either the amotoen JAR or ZIP, whichever you downloaded:
 
