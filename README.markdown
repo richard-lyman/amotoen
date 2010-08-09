@@ -17,7 +17,7 @@ quality or relationship shared between the two; I was just taking the shortest p
 to a unique name that might have been tangentially related to PEGs. You might even 
 successfully define 'shortest path' as some stream-of-consciousness process.
 
-I tend to pronounce Amotoen with a phonetic style that follows: Ah-moe-toe-in.
+I tend to pronounce Amotoen with a style that follows: Am-o-toe-n.
 I tend to place emphasis on the 'toe'.
 
 
@@ -36,4 +36,33 @@ found in the lack of macros, gen-class, or gen-interface. The clj-peg library us
 *the dirty three* in the core, and Amotoen avoids all of them entirely.
 
 Amotoen uses runtime processing of a given grammar, where clj-peg used macro 
-time expansion of a grammar. Amotoen
+time expansion of a grammar. Amotoen uses protocols instead of interfaces. Amotoen
+uses internally defined Throwables instead of gen-classed Errors. All of these changes
+result in far greater ease of use as well as increased maintainence.
+
+Sample Use
+----------
+
+Using Amotoen is very simple.
+Obviously you'll need to download either the ZIP or JAR to somewhere, then run the REPL 
+referencing the clojure JAR as well as either the amotoen JAR or ZIP, whichever you downloaded:
+
+    java -cp somewhere/amotoen.zip:somewhere_else/clojure.jar clojure.main
+
+In the REPL load some basic libraries:
+
+    user=> (use '(com.lithinos.amotoen core string-wrapper) '(com.lithinos.amotoen.grammars json))
+    
+Use the provided JSON grammar to create a JSON parser:
+
+    user=> (def jsonp (create-parser grammar))
+
+Throw some JSON at your parser (after wrapping it in the provided string-wrapper) and 
+you'll see the structure resulting from that particular grammar:
+
+    user=> (jsonp (wrap-string "1"))
+    {:JSONRoot [{:_* ""} ({:Value {:JSONNumber {:Int {:Digit "1"}}}}) {:_* ""} {:$ :EOF}]}
+
+That resulting structure is a native Clojure data structure, nothing special about it.
+
+
