@@ -1,4 +1,4 @@
-----------------------------------------------------------------------------------
+
     Copyright (c) Richard Lyman. All rights reserved.
     The use and distribution terms for this software are covered by the
     Eclipse Public License 1.0 (http://www.eclipse.org/legal/epl-v10.html)
@@ -6,23 +6,22 @@
     By using this software in any fashion, you are agreeing to be bound by
     the terms of this license.
     You must not remove this notice, or any other, from this software.
-----------------------------------------------------------------------------------
+
 
 Origin and Pronunciation
-========================
+------------------------
 
-There is a PEG/Packrat library *Neotoma* -- Amotoen is Neotoma written in 
-reverse, not that there is any particular quality or relationship between the 
-two I was just taking the shortest path to a unique name that might have been
-tangentially related to PEGs. You might even successfully define 'shortest path'
-as some stream-of-consciousness process.
+There is a PEG/Packrat library *Neotoma* (a scientific classification for pack 
+rats) -- Amotoen is Neotoma written in reverse, not that there is any particular 
+quality or relationship between the two; I was just taking the shortest path 
+to a unique name that might have been tangentially related to PEGs. You might even 
+successfully define 'shortest path' as some stream-of-consciousness process.
 
-I tend to pronounce Amotoen with a phonetic style that follows: Ae-moe-toe-in.
-Where the *Ae* is like the 'a' in cat, pat, or sat.
+I tend to pronounce Amotoen with a phonetic style that follows: Ah-moe-toe-in.
 
 
 Introduction
-============
+------------
 
 Amotoen is a Clojure library that supports PEG style definitions of grammars.
 While there are academic papers available that rigorously define PEG, I've found
