@@ -77,6 +77,6 @@ That resulting structure is a native Clojure data structure, nothing special abo
 Grammar Definitions
 -------------------
 
-The JSON grammar used above is shown in json.clj file in the com.lithinos.amotoen.grammars package.
+The JSON grammar used above is shown [here](http://github.com/richard-lyman/amotoen/blob/master/src/com/lithinos/amotoen/grammars/json.clj#L11-48).
 
 
