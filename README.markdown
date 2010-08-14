@@ -24,7 +24,7 @@ I tend to place emphasis on the 'toe'.
 Introduction
 ------------
 
-Amotoen is a Clojure library that supports PEG style definitions of grammars.
+Amotoen is a Clojure library that supports PEG style definitions of grammars that can produce parsers.
 While there are academic papers available that rigorously define PEG, I've found
 that PEGs, or **P**arsing **E**xpression **G**rammar(s), are best explained by the 
 [related Wikipedia page](http://en.wikipedia.org/wiki/Parsing_expression_grammar).
@@ -77,8 +77,6 @@ That resulting structure is a native Clojure data structure, nothing special abo
 Grammar Definitions
 -------------------
 
-The JSON grammar used above is shown in the following gist:
-
-<script src="http://gist.github.com/514922.js?file=Amotoen_JSON_Grammar.clj"></script>
+The JSON grammar used above is shown in json.clj file in the com.lithinos.amotoen.grammars package.
 
 
