@@ -87,4 +87,5 @@ Grammar Definitions
 
 The JSON grammar used above is shown [here](http://github.com/richard-lyman/amotoen/blob/master/src/com/lithinos/amotoen/grammars/json.clj#L11-48).
 
+I'll be adding more documentation on writing grammars soon...
 
