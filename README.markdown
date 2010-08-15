@@ -54,7 +54,7 @@ Second, change the current working directory to the newly created amotoen direct
 
     cd amotoen
 
-Third, start a Clojure repl with the Amotoen jar that we checked out:
+Third, start a Clojure repl with the Amotoen jar that we cloned:
 
     lein repl
 
