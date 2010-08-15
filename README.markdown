@@ -71,7 +71,7 @@ Throw some JSON at your parser (after wrapping it in the provided string-wrapper
 
     user=> (pprint (jsonp (wrap-string "1")))
 
-You'll see the structure resulting from that particular grammar's parser processing the input `"1"`:
+You'll see the structure resulting from that particular grammar's parser processing the wrapped input `"1"`:
 
     {:JSONRoot
      [{:_* ""}
