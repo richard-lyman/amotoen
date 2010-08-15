@@ -7,6 +7,8 @@
     the terms of this license.
     You must not remove this notice, or any other, from this software.
 
+<h2>Table of Contents</h2>
+
 *   Name and Pronunciation
 *   Introduction
 *   Samples
