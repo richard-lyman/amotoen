@@ -44,11 +44,17 @@ result in far greater ease of use as well as increased maintainence.
 Sample Use
 ----------
 
-Three simple commands to get started playing with Amotoen:
+There are three simple commands to get started playing with Amotoen.
+
+First, clone the git repo:
 
     git clone git://github.com/richard-lyman/amotoen.git
 
+Second, change the current working directory to the newly created amotoen directory:
+
     cd amotoen
+
+Third, start a Clojure repl with the Amotoen jar that we checked out:
 
     lein repl
 
