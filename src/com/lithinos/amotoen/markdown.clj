@@ -9,25 +9,47 @@
 (ns com.lithinos.amotoen.markdown)
 
 (def grammar {
-; Start
     :Start                          :Document
     :Enter                          (System/getProperty "line.separator")
-    :Line                           :???
-    :Document                       ['(+ Block) :$]
-    :Block                          '(| :Paragraph :Header :Blockquote :List :Codeblock :HRule)
+    :Line                           '(+ (| :EscapedChar :Span #"^."))
+    :Document                       ['(+ (| :Block :Line)) :$]
+    :EscapedChar                    ["\\" :EscapableChar]
+        :EscapableChar              '(| "\\" "`" "*" "_" "{" "}" "[" "]" "(" ")" "#" "+" "-" "." "!")
+    :Span                           '(| :Link :LiteralAsterisk :LiteralUnderscore :Emphasis :Code :Image :AutomaticLink)
+        :LiteralAsterisk            "* "
+        :LiteralUnderscore          "_ "
+        :Link                       ["[" :LinkTextOrLabel "]" '(| :InlineLink :ReferenceLink)]
+            :LinkTextOrLabel        #"^[^]]+"
+            :InlineLink             ["(" :LinkURL '(? [" " "\"" :LinkTitle "\""]) ")"]
+            :ReferenceLink          '(| :ImplicitRefLink ['(? " ") "[" :LinkLabel "]"])
+               :ImplicitRefLink     ['(? " ") "[]"]
+        :Emphasis                   '(| :StrongEmphasis :EMEmphasis)
+            :StrongEmphasis         '(| :StrongEmphasis** :StrongEmphasis__)
+                :StrongEmphasis**   ["**" '(+ [(! "**") #"^(?s)."]) "**"]
+                :StrongEmphasis__   ["__" '(+ [(! "__") #"^(?s)."]) "__"]
+            :EMEmphasis             '(| :EMEmphasis* :EMEmphasis_)
+                :EMEmphasis*        ["*" #"^[^*]+" "*"]
+                :EMEmphasis_        ["_" #"^[^_]+" "_"]
+        :Code                       '(| :SingleBacktick :DoubleBacktick :SpacedBacktick)
+            :SingleBacktick         ["`" '(? " ") #"^[^`]+" '(? " ") "`"]
+            :DoubleBacktick         ["``" '(? " ") '(+ [(! "``") #"^(?s)."]) '(? " ") "``"]
+        :Image                      ["!" :Link]
+        :AutomaticLink              ["<" :LinkText ">"]
+            :LinkText               #"^[^>]+"
+    :Block                          '(| :Paragraph :Header :Blockquote :List :Codeblock :HRule :LinkLabelDefinition)
         :Paragraph                  ['(* :BlankLine) '(+ :LineOfText) '(+ :BlankLine)]
             :BlankLine              #"^\s+$"
             :LineOfText             '(| :BreakEndedLine :Line)
                 :BreakEndedLine     [:Line #"^[ ][ ]+"]
         :Header                     '(| :SetextHeader :ATXHeader)
-            :SetextHeader           [:HeaderText :Enter '(| (+ "=") (+ "-")) :Enter]
+            :SetextHeader           [:HeaderText :Enter '(| (+ "=") (+ "-"))]
             :ATXHeader              '(| :ATXHeader1 :ATXHeader2 :ATXHeader3 :ATXHeader4 :ATXHeader5 :ATXHeader6)
-                :ATXHeader1         ["#"        :HeaderText '(* "#") :Enter]
-                :ATXHeader2         ["##"       :HeaderText '(* "#") :Enter]
-                :ATXHeader3         ["###"      :HeaderText '(* "#") :Enter]
-                :ATXHeader4         ["####"     :HeaderText '(* "#") :Enter]
-                :ATXHeader5         ["#####"    :HeaderText '(* "#") :Enter]
-                :ATXHeader6         ["######"   :HeaderText '(* "#") :Enter]
+                :ATXHeader1         ["#"        :HeaderText '(* "#")]
+                :ATXHeader2         ["##"       :HeaderText '(* "#")]
+                :ATXHeader3         ["###"      :HeaderText '(* "#")]
+                :ATXHeader4         ["####"     :HeaderText '(* "#")]
+                :ATXHeader5         ["#####"    :HeaderText '(* "#")]
+                :ATXHeader6         ["######"   :HeaderText '(* "#")]
         :Blockquote                 [:BlockquoteFirstLine '(* (| :BlockquoteFirstLine :Line))]
             :BlockquoteFirstLine    ['(+ "> ") :Line]
         :List                       '(| :OrderedList :UnorderedList)
@@ -37,9 +59,17 @@
                 :UnorderedMarker    [:ListIndent '(| "*" "+" "-")   :ListSpace]
                 :ListIndent         #"^[ ]{0,3}"
                 :ListSpace          '(| #"^[ ]+" "\t")
-                :ListLine           :???
+                :ListLine           :Line
         :Codeblock                  [:CodeIndent :Line]
             :CodeIndent             '(| "    " "\t")
         :HRule                      '(| #"^(-|- ){3,}" #"^(\*|\* ){3,}" #"^(_|_ ){3,}")
-    :Span                           '(| :Link :Emphasis :Code :Image)
-})
+        :LinkLabelDefinition        [#"^[ ]{0,3}" "[" :LinkLabel "]:" #"^[ \t]+" :LinkLabelURL '(? (| :SingleLineLLDTitle :DblLineLLDTitle))]
+            :LinkLabel              #"^[^]]+"
+            :LinkLabelURL           '(| :AngleLinkLabelURI :LinkURI)
+                :AngleLinkLabelURI  ["<" :LinkURI ">"]
+            :SingleLineLLDTitle     :LLDTitle
+            :DblLineLLDTitle        [#"[ \t]+\n[ \t]+" :LLDTitle]
+                :LLDTitle           '(| :DblQuoteLLDT :SnglQuoteLLDT :ParenLLDT)
+                    :DblQuoteLLDT   ["\""   :LinkTitle "\""]
+                    :SnglQuoteLLDT  ["'"    :LinkTitle "'"]
+                    :ParenLLDT      ["("    :LinkTitle ")"]})

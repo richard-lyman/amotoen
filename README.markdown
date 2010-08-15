@@ -41,8 +41,8 @@ uses internally defined Throwables instead of gen-classed Errors. All of these c
 result in far greater ease of use as well as increased maintainence.
 
 
-Sample Use
-----------
+Sample Use - JSON
+-----------------
 
 There are three simple commands to get started playing with Amotoen.
 
@@ -82,10 +82,41 @@ You'll see the structure resulting from that particular grammar's parser process
 That resulting structure is a native Clojure data structure, nothing special about it.
 
 
+Sample Use - Markdown
+---------------------
+
+Using the same initial three steps as the JSON sample, load the basic libraries:
+
+    user=> (use '(com.lithinos.amotoen core string-wrapper)
+                '(com.lithinos.amotoen [markdown :rename {grammar markdown-grammar}]))
+
+Use the provided and renamed markdown grammar to create a markdown parser:
+
+    user=> (def mdp (create-parser markdown-grammar))
+
+Throw some markdown at your parser (after wrapping it in the provided string-wrapper):
+
+    user=> (pprint (mdp (wrap-string "[1][]")))
+
+You'll see the structure resulting from that particular grammar's parser processing the wrapped input `"[1][]"`:
+
+    {:Document
+     [({:Line
+        ({:Span
+          {:Link
+           ["["
+            {:LinkTextOrLabel "1"}
+            "]"
+            {:ReferenceLink {:ImplicitRefLink [() "[]"]}}]}})})
+      {:$ :EOF}]}
+
+
 Grammar Definitions
 -------------------
 
 The JSON grammar used above is shown [here](http://github.com/richard-lyman/amotoen/blob/master/src/com/lithinos/amotoen/grammars/json.clj#L11-48).
+
+The markdown grammar used above is shown [here](http://github.com/richard-lyman/amotoen/blob/master/src/com/lithinos/amotoen/markdown.clj#L11-75).
 
 I'll be adding more documentation on writing grammars soon...
 
