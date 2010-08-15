@@ -62,24 +62,22 @@ In the REPL load some basic libraries:
 
     user=> (use '(com.lithinos.amotoen core string-wrapper) 
                 '(com.lithinos.amotoen.grammars json))
-    nil
     
 Use the provided JSON grammar to create a JSON parser:
 
     user=> (def jsonp (create-parser grammar))
-    #'user/jsonp
 
-Throw some JSON at your parser (after wrapping it in the provided string-wrapper) and 
-you'll see the structure resulting from that particular grammar:
+Throw some JSON at your parser (after wrapping it in the provided string-wrapper):
 
     user=> (pprint (jsonp (wrap-string "1")))
+
+You'll see the structure resulting from that particular grammar's parser processing the input `"1"`:
+
     {:JSONRoot
      [{:_* ""}
       ({:Value {:JSONNumber {:Int {:Digit "1"}}}})
       {:_* ""}
       {:$ :EOF}]}
-    nil
-    user=>
 
 That resulting structure is a native Clojure data structure, nothing special about it.
 
