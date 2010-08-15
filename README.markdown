@@ -44,21 +44,24 @@ result in far greater ease of use as well as increased maintainence.
 Sample Use
 ----------
 
-Using Amotoen is very simple, and **requires Clojure 1.2**.
-Obviously you'll need to download either the ZIP or JAR to somewhere, then run the REPL 
-referencing the clojure JAR as well as either the amotoen JAR or ZIP, whichever you downloaded:
+Three simple commands to get started playing with Amotoen:
 
-    java -cp somewhere/amotoen.zip:somewhere_else/clojure.jar:somewhere_else/clojure-contrib.jar clojure.main
+    git clone git://github.com/richard-lyman/amotoen.git
+
+    cd amotoen
+
+    lein repl
 
 In the REPL load some basic libraries:
 
-    user=> (use '(clojure.contrib pprint)
-                '(com.lithinos.amotoen core string-wrapper) 
+    user=> (use '(com.lithinos.amotoen core string-wrapper) 
                 '(com.lithinos.amotoen.grammars json))
+    nil
     
 Use the provided JSON grammar to create a JSON parser:
 
     user=> (def jsonp (create-parser grammar))
+    #'user/jsonp
 
 Throw some JSON at your parser (after wrapping it in the provided string-wrapper) and 
 you'll see the structure resulting from that particular grammar:
@@ -69,7 +72,8 @@ you'll see the structure resulting from that particular grammar:
       ({:Value {:JSONNumber {:Int {:Digit "1"}}}})
       {:_* ""}
       {:$ :EOF}]}
-
+    nil
+    user=>
 
 That resulting structure is a native Clojure data structure, nothing special about it.
 
