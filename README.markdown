@@ -7,14 +7,14 @@
     the terms of this license.
     You must not remove this notice, or any other, from this software.
 
-*   [Name and Pronunciation](#name)
-*   [Introduction](#intro)
-*   [Samples](#samples)
-    *   [JSON](#json)
-    *   [Markdown](#markdown)
-*   [Grammar Definitions](#grammar)
+*   Name and Pronunciation
+*   Introduction
+*   Samples
+    *   JSON
+    *   Markdown
+*   Grammar Definitions
 
-<h2 id="name">Name and Pronunciation</h2>
+<h2>Name and Pronunciation</h2>
 
 There is a PEG/Packrat library *Neotoma* (a scientific classification for pack 
 rats) -- Amotoen is Neotoma written in reverse, not that there is any particular 
@@ -26,7 +26,7 @@ I tend to pronounce Amotoen with a style that follows: Am-o-toe-n.
 I tend to place emphasis on the 'toe'.
 
 
-<h2 id="intro">Introduction</h2>
+<h2>Introduction</h2>
 
 Amotoen is a Clojure library that supports PEG style definitions of grammars that can produce parsers.
 While there are academic papers available that rigorously define PEG, I've found
@@ -45,7 +45,7 @@ uses internally defined Throwables instead of gen-classed Errors. All of these c
 result in far greater ease of use as well as increased maintainence.
 
 
-<h2 id="samples">Samples</h2>
+<h2>Samples</h2>
 
 There are three simple commands to get started playing with Amotoen.
 
@@ -61,7 +61,7 @@ Third, start a Clojure repl with the Amotoen jar that we cloned:
 
     lein repl
 
-<h3 id="json">JSON</h3>
+<h3>JSON</h3>
 
 In the REPL load some basic libraries:
 
@@ -87,7 +87,7 @@ You'll see the structure resulting from that particular grammar's parser process
 That resulting structure is a native Clojure data structure, nothing special about it.
 
 
-<h3><a id="markdown">Markdown</a></h3>
+<h3>Markdown</h3>
 
 In the REPL load some basic libraries:
 
@@ -117,7 +117,7 @@ You'll see the structure resulting from that particular grammar's parser process
 That resulting structure is a native Clojure data structure, nothing special about it.
 
 
-<h2 id="grammar">Grammar Definitions</h2>
+<h2>Grammar Definitions</h2>
 
 The JSON grammar used above is shown [here](http://github.com/richard-lyman/amotoen/blob/master/src/com/lithinos/amotoen/grammars/json.clj#L11-48).
 
