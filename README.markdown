@@ -87,7 +87,7 @@ You'll see the structure resulting from that particular grammar's parser process
 That resulting structure is a native Clojure data structure, nothing special about it.
 
 
-<h3 id="markdown">Markdown</h3>
+<h3><a id="markdown">Markdown</a></h3>
 
 In the REPL load some basic libraries:
 
