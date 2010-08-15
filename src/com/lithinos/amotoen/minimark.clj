@@ -6,8 +6,7 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.minimark
-    (:use (com.lithinos.amotoen core string-wrapper utils)))
+(ns com.lithinos.amotoen.minimark)
 
 (def grammar {
 ; Start
