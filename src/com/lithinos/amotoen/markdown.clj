@@ -11,8 +11,8 @@
 (def grammar {
     :Start                          :Document
     :Enter                          (System/getProperty "line.separator")
-    :Line                           '(+ (| :EscapedChar :Span #"^."))
-    :Document                       ['(+ (| :Block :Line)) :$]
+    :Line                           ['(+ (| :EscapedChar :Span #"^.")) '(| :Enter :$)]
+    :Document                       ['(+ (| :BlankLine :Block :Line)) :$]
     :EscapedChar                    ["\\" :EscapableChar]
         :EscapableChar              '(| "\\" "`" "*" "_" "{" "}" "[" "]" "(" ")" "#" "+" "-" "." "!")
     :Span                           '(| :Link :LiteralAsterisk :LiteralUnderscore :Emphasis :Code :Image :AutomaticLink)
@@ -37,10 +37,10 @@
         :AutomaticLink              ["<" :LinkText ">"]
             :LinkText               #"^[^>]+"
     :Block                          '(| :Paragraph :Header :Blockquote :List :Codeblock :HRule :LinkLabelDefinition)
-        :Paragraph                  ['(* :BlankLine) '(+ :LineOfText) '(+ :BlankLine)]
-            :BlankLine              #"^\s+$"
+        :Paragraph                  ['(+ :LineOfText) '(& (| :BlankLine :$))]
+            :BlankLine              [#"^[ \t]*$" :Enter]
             :LineOfText             '(| :BreakEndedLine :Line)
-                :BreakEndedLine     [:Line #"^[ ][ ]+"]
+                :BreakEndedLine     ['(& #"^.+[ ][ ]+$") :Line]
         :Header                     '(| :SetextHeader :ATXHeader)
             :SetextHeader           [:HeaderText :Enter '(| (+ "=") (+ "-"))]
             :ATXHeader              '(| :ATXHeader1 :ATXHeader2 :ATXHeader3 :ATXHeader4 :ATXHeader5 :ATXHeader6)

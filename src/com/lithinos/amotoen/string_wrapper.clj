@@ -14,10 +14,12 @@
     (let [result (apply
                     str
                     (seq
-                        (take-while
+                        #_(take-while
                             (fn [c]
                                 (not= c \newline))
-                            s)))]
+                            s)
+                        (take 50 s)
+                            ))]
         (str result
             (if (not= (count s) (count result))
                 "..."

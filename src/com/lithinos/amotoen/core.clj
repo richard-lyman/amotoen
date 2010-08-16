@@ -173,7 +173,7 @@
                                 (= :$ base)     (process-eof i)
                                 (keyword? base) (do (debug i l base) (process (base g) g i n))
                                 (map? base)     (throw (Error. (str "-- MAP IS NOT SUPPORTED -- " base)))   ; TODO
-                                (vector? base)  (reduce #(conj %1 (process %2 g i n)) [] base)
+                                (vector? base)  (reduce #(conj %1 (process %2 g i n)) [] base) ; This needs to fail-fast... don't keep reducing if any previous one fails
                                 terminal        (process-terminal base i)
                                 (list? base)    (process-grouping base g i n)
                                 true            (throw (Error. (unknown-base-error base))))]
