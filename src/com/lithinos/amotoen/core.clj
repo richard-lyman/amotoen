@@ -113,6 +113,9 @@
                             (throw (amotoen-error (option-error base-set)))))
                     success)))))
 
+(defn- processfn [callee base g i l]
+    ((eval callee) (process base g i l)))
+
 ;
 ;   LEVEL 2 FUNCTIONS
 ;
@@ -141,13 +144,14 @@
 (defn- process-grouping [base g i l]
     (let [type (first base)]
         (cond
-            (= '*   type) (process*     (second base) g i l)
-            (= '+   type) (process+     (second base) g i l)
-            (= '?   type) (process?     (second base) g i l)
-            (= '&   type) (process&     (second base) g i l)
-            (= '!   type) (process!     (second base) g i l)
-            (= '<+  type) (process<+    (second base) g i l)
-            (= '|   type) (process|     (rest base)   g i l)
+            (= '*   type) (process*     (second base)               g i l)
+            (= '+   type) (process+     (second base)               g i l)
+            (= '?   type) (process?     (second base)               g i l)
+            (= '&   type) (process&     (second base)               g i l)
+            (= '!   type) (process!     (second base)               g i l)
+            (= '<+  type) (process<+    (second base)               g i l)
+            (= '|   type) (process|     (rest base)                 g i l)
+            (= 'fn  type) (processfn    (nth base 1) (nth base 2)   g i l)
             true        (throw (Error. (grouping-error type))))))
 
 (defn- wrap-up-process [terminal result base i l]
@@ -194,7 +198,8 @@
     :Body               '(| :Keyword :Grouping :Terminal)
     :Bodies             [:Body '(* [:_* :Body])]
     :Grouping           '(| :Track :Sequence :Option :ZeroOrMore :OneOrMore :ZeroOrOne 
-                            :PositiveLookahead :NegativeLookahead :Gather :ByteTest :ByteMaskThenTest)
+                            :PositiveLookahead :NegativeLookahead :Gather :ByteTest :ByteMaskThenTest
+                            :Call)
     :Track              ["{"    :_* :Keyword :_     :Body       :_* "}"]
     :Sequence           ["["    :_*                 :Bodies     :_* "]"]
     :Option             ["(|"   :_                  :Bodies     :_* ")"]
@@ -206,6 +211,7 @@
     :Gather             ["(<+"  :_                  :Body       :_* ")"]
     :ByteTest           ["(B&"  :_                :ByteNumber   :_* ")"]
     :ByteMaskThenTest   ["(B&"  :_ :ByteNumber :_ :ByteNumber   :_* ")"]
+    :Call               ["(fn"  :_* :Callee :_* :Body           :_* ")"]
     :Terminal           '(| :RegEx :DoubleQuotedString :Binary ":$")
 ; Terminals
     :ByteNumber         '(| :RadixSuppliedNumber :HexNumber :Digit)

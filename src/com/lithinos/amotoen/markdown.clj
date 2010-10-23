@@ -8,11 +8,22 @@
 
 (ns com.lithinos.amotoen.markdown)
 
+(defn- Document-add-block [ast]
+    (let [ast (first (:Document ast))]
+        (loop [r ast]
+            (if (not (empty? r))
+                (recur (rest r))))
+        ast))
+
+(defn- add-block-level [ast]
+    (Document-add-block ast))
+
 (def grammar {
-    :Start      :Document
+    :Start      '(fn @#'com.lithinos.amotoen.markdown/add-block-level :Document)
     :Document   ['(+ :LinePart) :$]
-    :LinePart       '(| :EscapedChar :Span :RegularChar)
+    :LinePart       '(| :EscapedChar :Span :CodeIndent :RegularChar)
     :RegularChar    #"^(?s)."
+    :CodeIndent     [:Enter '(| "    " "\t")]
     :EscapedChar                    ["\\" :EscapableChar]
         :EscapableChar              '(| "\\" "`" "*" "_" "{" "}" "[" "]" "(" ")" "#" "+" "-" "." "!")
     ; Done - as long as regexs like :LinkTextOrLabel consume chars like newline
@@ -45,7 +56,7 @@
             :LinkText               #"^[^>]+"
         :BlankLine                  [:Enter #"^[ \t]*" :Enter]
     :Enter      (System/getProperty "line.separator")
-    })
+})
 
 
 
@@ -114,3 +125,38 @@
 ;                    :DblQuoteLLDT   ["\""   :LinkTitle "\""]
 ;                    :SnglQuoteLLDT  ["'"    :LinkTitle "'"]
 ;                    :ParenLLDT      ["("    :LinkTitle ")"]})
+
+(defn AutomaticLink-to-html [ast]
+    (println ast)
+    (let [ast (:AutomaticLink ast)]
+        ast))
+
+(defn BlankLine-to-html [ast]
+    "\n\n")
+
+(defn Span-to-html [ast]
+    (let [ast   (:Span ast)
+          k     (first (keys ast))]
+        (cond
+            (= k :BlankLine)        (BlankLine-to-html ast)
+            (= k :AutomaticLink)    (AutomaticLink-to-html ast)
+            true                    (do (println "\n\nSpan" k) ast))))
+
+(defn RegularChar-to-html [ast]
+    (:RegularChar ast))
+
+(defn CodeIndent-to-html [ast]
+    ast)
+
+(defn LinePart-to-html [ast]
+    (let [ast   (:LinePart ast)
+          k     (first (keys ast))]
+        (cond
+            (= k :RegularChar)  (RegularChar-to-html            ast)
+            (= k :Span)         (Span-to-html                   ast)
+            (= k :CodeIndent)   (CodeIndent-to-html             ast)
+            true                (do (println "\n\nLinePart" k)  ast))))
+
+(defn markdown-to-html [ast]
+    (let [ast (first (:Document ast))]
+        (reduce (fn [a b] (str a (LinePart-to-html b))) "" ast)))
