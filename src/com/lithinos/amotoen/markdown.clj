@@ -8,28 +8,25 @@
 
 (ns com.lithinos.amotoen.markdown)
 
-(defn- add-block-level [ast]
-    (let [ast (first (:Document ast))]
-        (loop [result           '()
-               r                ast
-               in-code-block    false]
-            (if (not (empty? r))
-                (let [el    (:LinePart (first r))
-                      k     (first (keys el))
-                      is-span?  (= :Span k)
-                      process   (if is-span?
-                                    (contains? #{:BlankLine} (first (keys (:Span el))))
-                                    (contains? #{:CodeIndent} k))]
-                    (when process
-                        (println (if is-span? (first (keys (:Span el))) k)))
-                    (recur
-                        (cons result (first r))
-                        (rest r)
-                        false))
-                (reverse result)))))
-
 (def grammar {
-    :Start      '(fn @#'com.lithinos.amotoen.markdown/add-block-level :Document)
+    :Start      {:Document  #(let [ast (first (:Document %))]
+                                (loop [result           '()
+                                       r                ast
+                                       in-code-block    false]
+                                    (if (not (empty? r))
+                                        (let [el    (:LinePart (first r))
+                                              k     (first (keys el))
+                                              is-span?  (= :Span k)
+                                              process   (if is-span?
+                                                            (contains? #{:BlankLine} (first (keys (:Span el))))
+                                                            (contains? #{:CodeIndent} k))]
+                                            (when process
+                                                (println (if is-span? (first (keys (:Span el))) k)))
+                                            (recur
+                                                (cons result (first r))
+                                                (rest r)
+                                                false))
+                                        (reverse result))))}
     :Document   ['(+ :LinePart) :$]
     :LinePart       '(| :EscapedChar :Span :CodeIndent :RegularChar)
     :RegularChar    #"^(?s)."

@@ -10,8 +10,9 @@
     (:use (com.lithinos.amotoen errors string-wrapper wrapper))
     (:import (java.util.regex Pattern)))
 
-(def #^{:private true} *EOF-mismatch*       "End of grammar failed to match end of input")
-(def #^{:private true} *invalid-grammar*    "Invalid grammar")
+(def #^{:private true} *EOF-mismatch*                       "End of grammar failed to match end of input")
+(def #^{:private true} *invalid-grammar*                    "Invalid grammar")
+(def #^{:private true} *invalid-post-process-arg-length*    "PostProcess can only take 2 args")
 (defn- lookahead-error      [o] (str "Lookahead failed:" o))
 (defn- option-error         [o] (str "Ran out of options: " o))
 (defn- consume-error        [o] (str "Check failed: '" o "' can not be consumed"))
@@ -112,10 +113,6 @@
                             (recur (rest remaining))
                             (throw (amotoen-error (option-error base-set)))))
                     success)))))
-
-(defn- processfn [callee base g i l]
-    ((eval callee) (process base g i l)))
-
 ;
 ;   LEVEL 2 FUNCTIONS
 ;
@@ -141,6 +138,11 @@
         (consume i base) 
         (throw (amotoen-error (consume-error base)))))
 
+(defn- process-map [base g i l]
+    (let [base [(first (keys base)) (first (vals base))]]
+        (if (not= (count base) 2) (throw (Error. *invalid-post-process-arg-length*)))
+        ((eval (second base)) (process (first base) g i l))))
+
 (defn- process-grouping [base g i l]
     (let [type (first base)]
         (cond
@@ -151,7 +153,6 @@
             (= '!   type) (process!     (second base)               g i l)
             (= '<+  type) (process<+    (second base)               g i l)
             (= '|   type) (process|     (rest base)                 g i l)
-            (= 'fn  type) (processfn    (nth base 1) (nth base 2)   g i l)
             true        (throw (Error. (grouping-error type))))))
 
 (defn- wrap-up-process [terminal result base i l]
@@ -176,7 +177,7 @@
                 (let [result (cond
                                 (= :$ base)     (process-eof i)
                                 (keyword? base) (do (debug i l base) (process (base g) g i n))
-                                (map? base)     (throw (Error. (str "-- MAP IS NOT SUPPORTED -- " base)))   ; TODO
+                                (map? base)     (process-map base g i n)
                                 (vector? base)  (reduce #(conj %1 (process %2 g i n)) [] base) ; This needs to fail-fast... don't keep reducing if any previous one fails
                                 terminal        (process-terminal base i)
                                 (list? base)    (process-grouping base g i n)
@@ -197,10 +198,9 @@
     :Keyword            #"^:[A-Za-z0-9:/*+!_?-][A-Za-z0-9:/*+!_?-]*"
     :Body               '(| :Keyword :Grouping :Terminal)
     :Bodies             [:Body '(* [:_* :Body])]
-    :Grouping           '(| :Track :Sequence :Option :ZeroOrMore :OneOrMore :ZeroOrOne 
-                            :PositiveLookahead :NegativeLookahead :Gather :ByteTest :ByteMaskThenTest
-                            :Call)
-    :Track              ["{"    :_* :Keyword :_     :Body       :_* "}"]
+    :Grouping           '(| :Sequence :Option :ZeroOrMore :OneOrMore :ZeroOrOne 
+                            :PositiveLookahead :NegativeLookahead
+                            :Gather :ByteTest :ByteMaskThenTest :PostProcess)
     :Sequence           ["["    :_*                 :Bodies     :_* "]"]
     :Option             ["(|"   :_                  :Bodies     :_* ")"]
     :ZeroOrMore         ["(*"   :_                  :Body       :_* ")"]
@@ -211,7 +211,6 @@
     :Gather             ["(<+"  :_                  :Body       :_* ")"]
     :ByteTest           ["(B&"  :_                :ByteNumber   :_* ")"]
     :ByteMaskThenTest   ["(B&"  :_ :ByteNumber :_ :ByteNumber   :_* ")"]
-    :Call               ["(fn"  :_* :Callee :_* :Body           :_* ")"]
     :Terminal           '(| :RegEx :DoubleQuotedString :Binary ":$")
 ; Terminals
     :ByteNumber         '(| :RadixSuppliedNumber :HexNumber :Digit)
@@ -227,7 +226,9 @@
     :Binary             ['(| :BinaryGetByte :BinaryGetBit) :BinaryGetSize]
         :BinaryGetByte              "B"
         :BinaryGetBit               "b"
-        :BinaryGetSize              #"^\d+"})
+        :BinaryGetSize              #"^\d+"
+    :PostProcess        ["{" :_* :Body :_* :Processor :_* "}"]
+        :Processor      '(+ [(! "}") #"^(?s)."])})
 
 ; Used in validating grammars
 (def #^{:private true} grammar-parser (create-parser grammar-grammar))
