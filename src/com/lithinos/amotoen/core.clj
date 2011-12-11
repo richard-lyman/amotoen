@@ -83,7 +83,13 @@
     (println "\tbody:" list-body)
     ; The first element is insert-child
     ; Each other is insert-right
-    (end (-> z (z/insert-child :Temp) z/down) "* not done"))
+    (loop [result z]
+        (let [attempt-to-get-another (evolve list-body z g c)]
+            (if attempt-to-get-another ; will be nil when it fails
+                (recur attempt-to-get-another)
+                result)))
+    ;(end (-> z (z/insert-child :Temp) z/down) "* not done")
+    )
 
 (defn list-evolution [r z g c]
     (let [list-type (first r)
