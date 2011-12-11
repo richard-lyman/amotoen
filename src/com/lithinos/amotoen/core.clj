@@ -95,7 +95,7 @@
                 attempt
                 (if (seq (rest remaining))
                     (recur (rest remaining))
-                    nil)))))
+                    (end (-> z z/up z/remove) "End of either... still no match"))))))
 
 (defn list-evolution [r z g c]
     (let [list-type (first r)
@@ -105,13 +105,22 @@
             (= list-type '|) (either-evolution list-body z g c)
             true (end z (str "Unknown list-type: " list-type)))))
 
+(defn string-evolution [r z g c]
+    (if (< 1 (count r))
+        (end z "Unable to handle multi-char terminals")
+        (if (= r c)
+            (-> z (z/insert-right c) z/right)
+            nil ; Somehow fail...
+            )))
+
 (defn evolve [r z g c]
     (println (expose z) "\t\t" (pr-str r))
     (cond
         (keyword? r)    (keyword-evolution r z g c)
         (vector? r)     (vector-evolution r z g c)
         (list? r)       (list-evolution r z g c)
-        true (end z (str "Unknown rule type:" r))))
+        (string? r)     (string-evolution r z g c)
+        true (end z (str "Unknown rule type:" (pr-str r)))))
 
 (defn pegasus [grammar input-wrapped]
     (loop [asts (list (-> (z/vector-zip [])))
