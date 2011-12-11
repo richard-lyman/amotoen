@@ -60,6 +60,10 @@
 
 (declare evolve)
 (defn expose [z] (z/root z))
+(defn end [z m]
+    (do (println m)
+        (println "Last known good:" (expose z))
+        (System/exit -1)))
 
 (defn keyword-evolution [r z g c]
     (if (= r :Start)
@@ -79,14 +83,14 @@
     (println "\tbody:" list-body)
     ; The first element is insert-child
     ; Each other is insert-right
-    (-> z (z/insert-child :Temp) z/down))
+    (end (-> z (z/insert-child :Temp) z/down) "* not done"))
 
 (defn list-evolution [r z g c]
     (let [list-type (first r)
           list-body (rest r)]
         (cond
             (= list-type '*) (zero-or-more-evolution list-body (-> z (z/insert-right []) z/right) g c)
-            true (do (println "Unknown list-type:" list-type) z))))
+            true (end z (str "Unknown list-type: " list-type)))))
 
 (defn evolve [r z g c]
     (println (expose z) "\t\t" r)
@@ -94,7 +98,7 @@
         (keyword? r)    (keyword-evolution r z g c)
         (vector? r)     (vector-evolution r z g c)
         (list? r)       (list-evolution r z g c)
-        true (do (println "Unknown rule type:" r) (System/exit -1))))
+        true (end z (str "Unknown rule type:" r))))
 
 (defn pegasus [grammar input-wrapped]
     (loop [asts (list (-> (z/vector-zip [])))
