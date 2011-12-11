@@ -8,6 +8,7 @@
 
 (ns com.lithinos.amotoen.core
     (:use (com.lithinos.amotoen errors string-wrapper wrapper))
+    (:require [clojure.zip :as z])
     (:import (java.util.regex Pattern)))
 
 (def #^{:private true} grammar-grammar {
@@ -57,12 +58,30 @@
             (move [t] (dosync (alter location inc)))
             (curr [t] (subs input @location (inc @location))))))
 
+(defprotocol darwin-ast
+    (expose [t] "")
+    (evolve [t c] ""))
+
+; user=> (def z (ref (-> (vector-zip [:Start]) down)))
+; user=> (dosync (ref-set z (-> @z (insert-right [:Bob]) right down)))
+; user=> (root @z)
+; [:Start [:Bob]]
+; user=> (dosync (ref-set z (-> @z (insert-right :qwe) right)))
+; user=> (root @z)
+; [:Start [:Bob :qwe]]
+
+(defn explode [grammar]
+    (let [z     (ref (-> (z/vector-zip [:Start]) z/down))]
+        (reify darwin-ast
+            (expose [t] (z/root @z))
+            (evolve [t c] t))))
+
 (defn pegasus [grammar input-wrapped]
-    (loop [asts []  ; Some reify that can evolve an AST based on curr
+    (loop [asts (list (explode grammar))  ; Some reify that can evolve an AST based on curr
            c    (curr input-wrapped)]
-        (println c "->" asts)
+        (println c "->" (map expose asts))
         (if (has? input-wrapped)
-            (recur  []
+            (recur  (map #(evolve % c) asts)
                     (do (move input-wrapped) (curr input-wrapped)))
             asts)))
 
