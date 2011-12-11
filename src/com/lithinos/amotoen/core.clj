@@ -83,10 +83,16 @@
 
 (defn zero-or-more-evolution [body z g c]
     (loop [result z]
-        (let [attempt-to-get-another (evolve body z g c)]
-            (if attempt-to-get-another ; will be nil when it fails
-                (recur attempt-to-get-another)
-                result))))
+        (try
+            (recur (evolve body z g c))
+            (catch Error e
+                (do
+                    (end z (str "Zero or more is done: " (z/node z)))
+                    ; Instead of the above, we should check the z/node... 
+                        ; if it's empty then we remove the entire '* block and return the new z
+                        ; return z
+                    )
+            ))))
 
 (defn either-evolution [list-body z g c]
     (loop [remaining list-body]
@@ -95,7 +101,10 @@
                 attempt
                 (if (seq (rest remaining))
                     (recur (rest remaining))
-                    (end (-> z z/up z/remove) "End of either... still no match"))))))
+                    (do
+                        (throw (Error. "Either failed"));(end (-> z z/up z/remove) "End of either... still no match")
+                        )
+                    )))))
 
 (defn list-evolution [r z g c]
     (let [list-type (first r)
