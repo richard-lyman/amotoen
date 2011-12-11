@@ -90,15 +90,13 @@
 
 (defn evolve [r z g c]
     (println (expose z) "\t\t" r)
-    ;(let [r ((z/node z) g)]
-        (cond
-            (keyword? r)    (keyword-evolution r z g c)
-            (vector? r)     (vector-evolution r z g c)
-            (list? r)       (list-evolution r z g c)
-            true (do (println "Unknown rule type:" r) z)));)
+    (cond
+        (keyword? r)    (keyword-evolution r z g c)
+        (vector? r)     (vector-evolution r z g c)
+        (list? r)       (list-evolution r z g c)
+        true (do (println "Unknown rule type:" r) (System/exit -1))))
 
 (defn pegasus [grammar input-wrapped]
-    ;(loop [asts (list (-> (z/vector-zip [:Start]) z/down))
     (loop [asts (list (-> (z/vector-zip [])))
            c    (curr input-wrapped)]
         (if (has? input-wrapped)
