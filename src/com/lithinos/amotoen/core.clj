@@ -58,20 +58,53 @@
             (move [t] (dosync (alter location inc)))
             (curr [t] (subs input @location (inc @location))))))
 
+(declare evolve)
 (defn expose [z] (z/root z))
-(defn evolve [z c]
-    (println "Evolving from:" (expose z) "using:" c)
+
+(defn keyword-evolution [r z g c]
+    (if (= r :Start)
+        (evolve (r g) (-> z (z/insert-child r) z/down) g c)
+        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g c)))
+
+(defn vector-evolution [r z g c]
+    (loop [remaining    (rest r)
+           z            (-> z (z/insert-right [(evolve (first r) z g c)]) z/right z/down)]
+        (if (seq remaining)
+            (recur  (-> z (z/insert-right (evolve (first remaining) z g c)) z/right)
+                    (rest remaining))
+            z)))
+
+(defn zero-or-more-evolution [list-body z g c]
+    (println "Zero-or-more:" (expose z))
+    (println "\tbody:" list-body)
+    ; The first element is insert-child
+    ; Each other is insert-right
     z)
 
+(defn list-evolution [r z g c]
+    (let [list-type (first r)
+          list-body (rest r)]
+        (cond
+            (= list-type '*) (zero-or-more-evolution list-body (-> z (z/insert-right []) z/right) g c)
+            true (do (println "Unknown list-type:" list-type) z))))
+
+(defn evolve [r z g c]
+    (println (expose z) "\t\t" r)
+    ;(let [r ((z/node z) g)]
+        (cond
+            (keyword? r)    (keyword-evolution r z g c)
+            (vector? r)     (vector-evolution r z g c)
+            (list? r)       (list-evolution r z g c)
+            true (do (println "Unknown rule type:" r) z)));)
+
 (defn pegasus [grammar input-wrapped]
-    ;explode = (-> (z/vector-zip [:Start]) z/down)
-    ;(loop [asts (list (explode grammar))
-    (loop [asts (list (-> (z/vector-zip [:Start]) z/down))
+    ;(loop [asts (list (-> (z/vector-zip [:Start]) z/down))
+    (loop [asts (list (-> (z/vector-zip [])))
            c    (curr input-wrapped)]
         (if (has? input-wrapped)
-            (recur  (doall (map #(evolve % c) asts)) ; Flatten and de-nullify
+            (recur  (doall (map #(evolve :Start % grammar c) asts)) ; Flatten and de-nullify
                     (do (move input-wrapped) (curr input-wrapped)))
-            (expose (first (doall (map #(evolve % c) asts)))))))
+            (expose (first (doall (map #(evolve :Something-goes-here % grammar c) asts)))))))
 
 (let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
     (println result))
