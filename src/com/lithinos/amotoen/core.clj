@@ -79,7 +79,7 @@
     (println "\tbody:" list-body)
     ; The first element is insert-child
     ; Each other is insert-right
-    z)
+    (-> z (z/insert-child :Temp) z/down))
 
 (defn list-evolution [r z g c]
     (let [list-type (first r)
