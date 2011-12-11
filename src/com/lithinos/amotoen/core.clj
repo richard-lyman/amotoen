@@ -7,8 +7,9 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns com.lithinos.amotoen.core
-    (:use (com.lithinos.amotoen errors string-wrapper wrapper))
-    (:require [clojure.zip :as z])
+    (:use (com.lithinos.amotoen errors string-wrapper wrapper)
+            (clojure pprint))
+    (:require   [clojure.zip :as z])
     (:import (java.util.regex Pattern)))
 
 (def #^{:private true} grammar-grammar {
@@ -63,7 +64,7 @@
 (defn end [z m]
     (do (println m)
         (println "Last known good:")
-        (println (expose z))
+        (println (pprint (expose z)))
         (System/exit -1)))
 
 (defn keyword-evolution [r z g c]
@@ -72,12 +73,13 @@
         (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g c)))
 
 (defn vector-evolution [r z g c]
+(let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)]
     (loop [remaining    (rest r)
-           z            (-> z (z/insert-right [(evolve (first r) z g c)]) z/right z/down)]
+           z            (-> z (z/insert-child [(evolve (first r) z g c)]) z/down)]
         (if (seq remaining)
             (recur  (-> z (z/insert-right (evolve (first remaining) z g c)) z/right)
                     (rest remaining))
-            z)))
+            z))))
 
 (defn zero-or-more-evolution [list-body z g c]
     ; The first element is insert-child
