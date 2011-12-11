@@ -62,11 +62,12 @@
 (defn expose [z] (z/root z))
 (defn end [z m]
     (do (println m)
-        (println "Last known good:" (expose z))
+        (println "Last known good:")
+        (println (expose z))
         (System/exit -1)))
 
 (defn keyword-evolution [r z g c]
-    (if (= r :Start)
+    (if (= [] (z/node z))
         (evolve (r g) (-> z (z/insert-child r) z/down) g c)
         (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g c)))
 
@@ -79,27 +80,23 @@
             z)))
 
 (defn zero-or-more-evolution [list-body z g c]
-    (println "Zero-or-more:" (expose z))
-    (println "\tbody:" list-body)
     ; The first element is insert-child
     ; Each other is insert-right
     (loop [result z]
         (let [attempt-to-get-another (evolve list-body z g c)]
             (if attempt-to-get-another ; will be nil when it fails
                 (recur attempt-to-get-another)
-                result)))
-    ;(end (-> z (z/insert-child :Temp) z/down) "* not done")
-    )
+                result))))
 
 (defn list-evolution [r z g c]
     (let [list-type (first r)
           list-body (rest r)]
         (cond
-            (= list-type '*) (zero-or-more-evolution list-body (-> z (z/insert-right []) z/right) g c)
+            (= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g c)
             true (end z (str "Unknown list-type: " list-type)))))
 
 (defn evolve [r z g c]
-    (println (expose z) "\t\t" r)
+    (println (expose z) "\t\t" (pr-str r))
     (cond
         (keyword? r)    (keyword-evolution r z g c)
         (vector? r)     (vector-evolution r z g c)
