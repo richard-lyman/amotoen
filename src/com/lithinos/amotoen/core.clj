@@ -58,26 +58,23 @@
             (move [t] (dosync (alter location inc)))
             (curr [t] (subs input @location (inc @location))))))
 
-(defprotocol darwin-ast
-    (expose [t] "")
-    (evolve [t c] ""))
-
-(defn explode [grammar]
-    (let [z (ref (-> (z/vector-zip [:Start]) z/down))]
-        (reify darwin-ast
-            (expose [t] (z/root @z))
-            (evolve [t c]
-                (println "Evolving from:" (z/node @z) "using:" c)
-                t))))
+(defn expose [z] (z/root z))
+(defn evolve [z c]
+    (println "Evolving from:" (expose z) "using:" c)
+    z)
 
 (defn pegasus [grammar input-wrapped]
-    (loop [asts (list (explode grammar))
+    ;explode = (-> (z/vector-zip [:Start]) z/down)
+    ;(loop [asts (list (explode grammar))
+    (loop [asts (list (-> (z/vector-zip [:Start]) z/down))
            c    (curr input-wrapped)]
         (if (has? input-wrapped)
-            (recur  (doall (map #(evolve % c) asts)) (do (move input-wrapped) (curr input-wrapped)))
-                    (doall (map #(evolve % c) asts)))))
+            (recur  (doall (map #(evolve % c) asts)) ; Flatten and de-nullify
+                    (do (move input-wrapped) (curr input-wrapped)))
+            (expose (first (doall (map #(evolve % c) asts)))))))
 
-(pegasus grammar-grammar (wrap "{:S \"a\"}"))
+(let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
+    (println result))
 
 
 
