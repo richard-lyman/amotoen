@@ -62,28 +62,32 @@
     (expose [t] "")
     (evolve [t c] ""))
 
+(defn explode [grammar]
+    (let [z (ref (-> (z/vector-zip [:Start]) z/down))]
+        (reify darwin-ast
+            (expose [t] (z/root @z))
+            (evolve [t c]
+                (println "Evolving from:" (z/node @z) "using:" c)
+                t))))
+
+(defn pegasus [grammar input-wrapped]
+    (loop [asts (list (explode grammar))
+           c    (curr input-wrapped)]
+        (if (has? input-wrapped)
+            (recur  (doall (map #(evolve % c) asts)) (do (move input-wrapped) (curr input-wrapped)))
+                    (doall (map #(evolve % c) asts)))))
+
+(pegasus grammar-grammar (wrap "{:S \"a\"}"))
+
+
+
 ; user=> (def z (ref (-> (vector-zip [:Start]) down)))
+; user=> (node @z)
+; :Start
 ; user=> (dosync (ref-set z (-> @z (insert-right [:Bob]) right down)))
 ; user=> (root @z)
 ; [:Start [:Bob]]
 ; user=> (dosync (ref-set z (-> @z (insert-right :qwe) right)))
 ; user=> (root @z)
 ; [:Start [:Bob :qwe]]
-
-(defn explode [grammar]
-    (let [z     (ref (-> (z/vector-zip [:Start]) z/down))]
-        (reify darwin-ast
-            (expose [t] (z/root @z))
-            (evolve [t c] t))))
-
-(defn pegasus [grammar input-wrapped]
-    (loop [asts (list (explode grammar))  ; Some reify that can evolve an AST based on curr
-           c    (curr input-wrapped)]
-        (println c "->" (map expose asts))
-        (if (has? input-wrapped)
-            (recur  (map #(evolve % c) asts)
-                    (do (move input-wrapped) (curr input-wrapped)))
-            asts)))
-
-(pegasus grammar-grammar (wrap "{:S \"a\"}"))
 
