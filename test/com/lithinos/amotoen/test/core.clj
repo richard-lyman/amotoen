@@ -3,10 +3,11 @@
   (:use [com.lithinos.amotoen.core] :reload-all)
   (:use [clojure.test])
   (:use [clojure.pprint])
-  (:use [com.lithinos.amotoen.string-wrapper]
-        [com.lithinos.amotoen [markdown :rename {grammar markdown-grammar}]]))
+  #_(:use [com.lithinos.amotoen.string-wrapper]
+        [com.lithinos.amotoen [markdown :rename {grammar markdown-grammar}]])
+        )
 
-(deftest standard-test-files
+#_(deftest standard-test-files
     (let [mdp (create-parser markdown-grammar)]
         (doseq [f (list (first (filter #(re-find #"\.text$" (.getName %)) (file-seq (File. "./test/MarkdownTests")))))]
             (println f)
