@@ -81,20 +81,28 @@
                     (rest remaining))
             z))))
 
-(defn zero-or-more-evolution [list-body z g c]
-    ; The first element is insert-child
-    ; Each other is insert-right
+(defn zero-or-more-evolution [body z g c]
     (loop [result z]
-        (let [attempt-to-get-another (evolve list-body z g c)]
+        (let [attempt-to-get-another (evolve body z g c)]
             (if attempt-to-get-another ; will be nil when it fails
                 (recur attempt-to-get-another)
                 result))))
+
+(defn either-evolution [list-body z g c]
+    (loop [remaining list-body]
+        (let [attempt (evolve (first remaining) z g c)]
+            (if attempt ; will be nil when it fails
+                attempt
+                (if (seq (rest remaining))
+                    (recur (rest remaining))
+                    nil)))))
 
 (defn list-evolution [r z g c]
     (let [list-type (first r)
           list-body (rest r)]
         (cond
             (= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g c)
+            (= list-type '|) (either-evolution list-body z g c)
             true (end z (str "Unknown list-type: " list-type)))))
 
 (defn evolve [r z g c]
@@ -114,7 +122,7 @@
             (expose (first (doall (map #(evolve :Something-goes-here % grammar c) asts)))))))
 
 (let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
-    (println result))
+    (println (pprint result)))
 
 
 
