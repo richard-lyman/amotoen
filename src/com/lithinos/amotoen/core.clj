@@ -50,7 +50,7 @@
 (defn fail [z] (-> z (z/replace *fail-node*)))
 (defn failed? [z] (= (z/node z) *fail-node*))
 (defn cleanup [z] (-> z z/remove))
-(defn mark [z] (println (z/lefts z) "X" (z/rights z) "IN" (z/node (z/prev z)) "HAVING" (z/children z) "THROUGH" (z/path z)) z)
+(defn mark [z] (println (z/lefts z) "X" (z/rights z) "IN" (z/node (z/prev z)) "HAVING" (z/children z) "THROUGH" (z/path z) "FULL" (z/root z)) z)
 
 (defprotocol wrapped-input
     (has? [t] "")
@@ -80,9 +80,16 @@
 (defn vector-evolution [r z g c]
 (let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)]
     (loop [remaining    (rest r)
-           z            (-> z (z/insert-child [(evolve (first r) z g c)]) z/down)]
+    ;
+    ;
+    ;   So. We need to insert a child... inside the call to evolve... not outside, and certainly not after.
+    ;
+    ;
+           ;z            (-> z (z/insert-child [(evolve (first r) z g c)]) z/down)]
+           z            (evolve (first r) (-> z z/down) g c)
+        (println "pre" (expose z))
         (if (seq remaining)
-            (do (println "Vector has more with next:" (first remaining))
+            (do (println "Vector has more with next:" (first remaining) "ON" (expose z))
                 (recur  (rest remaining)
                         (-> z (z/insert-right (evolve (first remaining) z g c)) z/right)))
             z))))
@@ -91,7 +98,7 @@
     (loop [result z]
         (if (failed? result)
             (do (println "Zero-or-more failed" (expose (cleanup result)))
-                (mark (-> (cleanup result) z/up z/rightmost)))
+                (mark (cleanup result)))
             (recur (evolve body result g c)))))
 
 (defn either-evolution [list-body z g c]
@@ -137,7 +144,7 @@
             (expose (first (doall (map #(evolve :Something-goes-here % grammar c) asts)))))))
 
 (let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
-    (println (pprint result)))
+    (println (pprint (z/root result))))
 
 
 
