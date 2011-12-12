@@ -7,8 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns com.lithinos.amotoen.core
-    (:use (com.lithinos.amotoen errors string-wrapper wrapper)
-            (clojure pprint))
+    (:use (clojure pprint))
     (:require   [clojure.zip :as z])
     (:import (java.util.regex Pattern)))
 
@@ -47,6 +46,12 @@
             :AnyNotDoubleQuote          '(= "\"")
 })
 
+(def *fail-node* :this-marks-some-failed-evolution)
+(defn fail [z] (-> z (z/replace *fail-node*)))
+(defn failed? [z] (= (z/node z) *fail-node*))
+(defn cleanup [z] (-> z z/remove))
+(defn mark [z] (println (z/lefts z) "X" (z/rights z) "IN" (z/node (z/prev z)) "HAVING" (z/children z) "THROUGH" (z/path z)) z)
+
 (defprotocol wrapped-input
     (has? [t] "")
     (move [t] "")
@@ -77,34 +82,26 @@
     (loop [remaining    (rest r)
            z            (-> z (z/insert-child [(evolve (first r) z g c)]) z/down)]
         (if (seq remaining)
-            (recur  (-> z (z/insert-right (evolve (first remaining) z g c)) z/right)
-                    (rest remaining))
+            (do (println "Vector has more with next:" (first remaining))
+                (recur  (rest remaining)
+                        (-> z (z/insert-right (evolve (first remaining) z g c)) z/right)))
             z))))
 
 (defn zero-or-more-evolution [body z g c]
     (loop [result z]
-        (try
-            (recur (evolve body z g c))
-            (catch Error e
-                (do
-                    (end z (str "Zero or more is done: " (z/node z)))
-                    ; Instead of the above, we should check the z/node... 
-                        ; if it's empty then we remove the entire '* block and return the new z
-                        ; return z
-                    )
-            ))))
+        (if (failed? result)
+            (do (println "Zero-or-more failed" (expose (cleanup result)))
+                (mark (-> (cleanup result) z/up z/rightmost)))
+            (recur (evolve body result g c)))))
 
 (defn either-evolution [list-body z g c]
     (loop [remaining list-body]
         (let [attempt (evolve (first remaining) z g c)]
-            (if attempt ; will be nil when it fails
-                attempt
+            (if (failed? attempt)
                 (if (seq (rest remaining))
                     (recur (rest remaining))
-                    (do
-                        (throw (Error. "Either failed"));(end (-> z z/up z/remove) "End of either... still no match")
-                        )
-                    )))))
+                    (fail z))
+                attempt))))
 
 (defn list-evolution [r z g c]
     (let [list-type (first r)
@@ -118,9 +115,9 @@
     (if (< 1 (count r))
         (end z "Unable to handle multi-char terminals")
         (if (= r c)
-            (-> z (z/insert-right c) z/right)
-            nil ; Somehow fail...
-            )))
+            (do (println "MATCH!" r)
+                (-> z (z/insert-right c) z/right))
+            (fail z))))
 
 (defn evolve [r z g c]
     (println (expose z) "\t\t" (pr-str r))
