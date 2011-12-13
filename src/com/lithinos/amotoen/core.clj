@@ -76,17 +76,19 @@
 
 (def *cycle-map* (ref {}))
 (defn keyword-evolution [r z g i]
-    (println r (r @*cycle-map*))
+    (println (pr-str (curr i)) r (r @*cycle-map*))
     (when (r @*cycle-map*) (end z "Infinite cycle"))
     (dosync (alter *cycle-map* assoc r (loca i))) ; When a rule leave's itself, it should be removed... or something
-    (if (= [] (z/node z))
-        (evolve (r g) (-> z (z/insert-child r) z/down) g i)
-        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i)))
+    (let [result    (if (= [] (z/node z))
+                        (evolve (r g) (-> z (z/insert-child r) z/down) g i)
+                        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))]
+        (dosync (alter *cycle-map* dissoc r))
+        result))
 
 (defn vector-evolution [r z g i]
-    (let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)]
+    (let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)] ; This isn't always what's wanted...
         (loop [remaining    (rest r)
-               z            (evolve (first r) z g i)]
+               z            (evolve (first r) z g i)] ; If this fails everything should fail
             (if (seq remaining)
                 (recur  (rest remaining)
                         (evolve (first remaining) (-> z z/rightmost) g i))
@@ -127,14 +129,15 @@
     (if (< 1 (count r))
         (end z "Unable to handle multi-char terminals")
         (if (= r (curr i))
-            (do (println "MATCH!" (pr-str r) (expose z))
-                (move i)
+            (let [result (-> z (z/insert-right (curr i)) z/right)]
+                (println "MATCH!" (pr-str r) (expose result))
                 (dosync (ref-set *cycle-map* {}))
-                (-> z (z/insert-right (curr i)) z/right))
+                (move i)
+                result)
             (fail z))))
 
 (defn evolve [r z g i]
-    ;(println (expose z) "\t\t" (pr-str r))
+    (println "\t" (pr-str r))
     (cond
         (keyword? r)    (keyword-evolution r z g i)
         (vector? r)     (vector-evolution r z g i)
