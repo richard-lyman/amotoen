@@ -78,22 +78,19 @@
         (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g c)))
 
 (defn vector-evolution [r z g c]
-(let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)]
-    (loop [remaining    (rest r)
-    ;
-    ;
-    ;   So. We need to insert a child... inside the call to evolve... not outside, and certainly not after.
-    ;
-    ;
-           ;z            (-> z (z/insert-child [(evolve (first r) z g c)]) z/down)]
-           z            (evolve (first r) z g c)]
-        (println "pre" (expose z))
-        (if (seq remaining)
-            (do (println "Vector has more with next:" (first remaining) "ON" (expose z))
-                (recur  (rest remaining)
-                        ;(-> z (z/insert-right (evolve (first remaining) z g c)) z/right)))
-                        (evolve (first remaining) z g c)))
-            z))))
+    (let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)]
+        (loop [remaining    (rest r)
+               z            (evolve (first r) z g c)]
+            (println "pre" (expose z))
+            (if (seq remaining)
+                (do (println "Vector has more with next:" (first remaining) "ON" (expose z))
+                    (recur  (rest remaining)
+                            ;(evolve (first remaining) (-> z z/up z/rightmost (z/insert-child []) z/down) g c)))
+                            ;
+                            ;   So... the children need to put the zipper in the right place...
+                            ;
+                            (evolve (first remaining) (-> z z/up z/rightmost) g c)))
+                z))))
 
 (defn zero-or-more-evolution [body z g c]
     (loop [result z]
