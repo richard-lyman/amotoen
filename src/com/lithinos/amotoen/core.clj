@@ -35,7 +35,7 @@
     :ZeroOrOne          [["(" "?"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
     :MustFind           [["(" "&"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
     :MustNotFind        [["(" "!"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
-    :Until              [["(" "^"]  :_      :ShortBody  :_* ")"]
+    :Until              [["(" "%"]  :_      :ShortBody  :_* ")"]
     :Terminal           '(| :DoubleQuotedString :EndOfInput)
 ; Terminals
     :EndOfInput         [":" "$"]
@@ -43,7 +43,7 @@
         :DoubleQuotedStringContent  '(| :EscapedSlash :EscapedDoubleQuote :AnyNotDoubleQuote)
             :EscapedSlash               ["\\" "\\"]
             :EscapedDoubleQuote         ["\\" "\""]
-            :AnyNotDoubleQuote          '(^ "\"")
+            :AnyNotDoubleQuote          '(% "\"")
 })
 
 (def *fail-node* :this-marks-some-failed-evolution)
@@ -102,6 +102,7 @@
             (z/up (cleanup result))
             (recur (evolve body result g i)))))
 
+; If an option succeeds - no other should be tried... make sure
 (defn either-evolution [list-body z g i]
     (loop [remaining list-body]
         (let [attempt (evolve (first remaining) z g i)]
@@ -117,6 +118,15 @@
             (fail z)
             (zero-or-more-evolution body first-result g i))))
 
+(defn until-evolution [body z g i]
+    (if (failed? (evolve body z g i))
+        (let [result (-> z (z/insert-right (curr i)) z/right)]
+            (println "UNTIL MATCH!" (pr-str body) (expose result))
+            (dosync (ref-set *cycle-map* {}))
+            (move i)
+            result)
+        (fail z)))
+
 (defn list-evolution [r z g i]
     (let [list-type (first r)
           list-body (rest r)]
@@ -124,8 +134,8 @@
             (= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
             (= list-type '|) (either-evolution list-body z g i)
             (= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
-            (= list-type '^) (evolve list-body z g i)   ; This  will eventually be more...
-            true (end z (str "Unknown list-type: " list-type)))))
+            (= list-type '%) (until-evolution (first list-body) z g i)   ; This  will eventually be more...
+            true (end z (str "Unknown list-type: " (pr-str list-type))))))
 
 (defn string-evolution [r z g i]
     (if (< 1 (count r))
@@ -147,12 +157,14 @@
         (string? r)     (string-evolution r z g i)
         true (end z (str "Unknown rule type:" (pr-str r)))))
 
-(defn pegasus [grammar input-wrapped]
+#_(defn pegasus [grammar input-wrapped]
     (loop [asts (list (-> (z/vector-zip [])))]
         (if (has? input-wrapped)
             (recur  (doall (map #(evolve :Start % grammar input-wrapped) asts)) ; Flatten and de-nullify
                     )
             (expose (first (doall (map #(evolve :Something-goes-here % grammar input-wrapped) asts)))))))
+(defn pegasus [grammar input-wrapped]
+    (evolve :Start (-> (z/vector-zip [])) grammar input-wrapped))
 
 (let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
     (println (pprint (z/root result))))
@@ -168,4 +180,34 @@
 ; user=> (dosync (ref-set z (-> @z (insert-right :qwe) right)))
 ; user=> (root @z)
 ; [:Start [:Bob :qwe]]
+
+
+;[:Start
+;    [:Expr
+;        [
+;            [:_* []] 
+;            "{" 
+;            [:_* []]
+;            [:Rule
+;                [
+;                    [:_* []]
+;                    [:Keyword
+;                        [
+;                            []
+;                            ":"
+;                            [:ValidKeywordChar "S" []]
+;                            [:_ [:Whitespace " " []]
+;                            [:Body
+;                                [:Terminal
+;                                    [:DoubleQuotedString
+;                                        [
+;                                            []
+;                                            "\""
+;                                            [:DoubleQuotedStringContent
+;                                                [:AnyNotDoubleQuote
+;                                                    "a"
+;                                                    [:DoubleQuotedStringContent
+;                                                        [:AnyNotDoubleQuote
+;                                                            "\""]]]]]]]]]]]]]]]]
+;
 
