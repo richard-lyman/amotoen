@@ -28,17 +28,17 @@
     :Body               '(| :Keyword :Grouping :Terminal)
     :Bodies             [:Body '(* [:_* :Body])]
     :Grouping           '(| :Sequence :Either :ZeroOrMore :OneOrMore :ZeroOrOne :MustFind :MustNotFind)
-    :Sequence           ["["    :_*                 :Bodies     :_* "]"]
-    :Either             ["(|"   :_                  :Bodies     :_* ")"]
-    :ZeroOrMore         ["(*"   :_                  :Body       :_* ")"]
-    :OneOrMore          ["(+"   :_                  :Body       :_* ")"]
-    :ZeroOrOne          ["(?"   :_                  :Body       :_* ")"] ; Not used in grammar-grammar
-    :MustFind           ["(&"   :_                  :Body       :_* ")"] ; Not used in grammar-grammar
-    :MustNotFind        ["(!"   :_                  :Body       :_* ")"] ; Not used in grammar-grammar
-    :Until              ["(="   :_                  :ShortBody  :_* ")"]
+    :Sequence           ["["        :_*     :Bodies     :_* "]"]
+    :Either             [["(" "|"]  :_      :Bodies     :_* ")"]
+    :ZeroOrMore         [["(" "*"]  :_      :Body       :_* ")"]
+    :OneOrMore          [["(" "+"]  :_      :Body       :_* ")"]
+    :ZeroOrOne          [["(" "?"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
+    :MustFind           [["(" "&"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
+    :MustNotFind        [["(" "!"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
+    :Until              [["(" "="]  :_      :ShortBody  :_* ")"]
     :Terminal           '(| :DoubleQuotedString :EndOfInput)
 ; Terminals
-    :EndOfInput         ":$"
+    :EndOfInput         [":" "$"]
     :DoubleQuotedString ["\"" '(+ :DoubleQuotedStringContent) "\""]
         :DoubleQuotedStringContent  '(| :EscapedSlash :EscapedDoubleQuote :AnyNotDoubleQuote)
             :EscapedSlash               ["\\" "\\"]
@@ -88,9 +88,9 @@
 (defn vector-evolution [r z g i]
     (let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)] ; This isn't always what's wanted...
         (loop [remaining    (rest r)
-               z            (evolve (first r) z g i)] ; If this fails everything should fail
+               z            (evolve (first r) z g i)]
             (if (failed? z)
-                (fail (-> z z/up))
+                (fail (-> z z/up)) ; Possible problem here
                 (if (seq remaining)
                     (recur  (rest remaining)
                             (evolve (first remaining) (-> z z/rightmost) g i))
