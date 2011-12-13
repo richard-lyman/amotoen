@@ -85,18 +85,13 @@
             (if (seq remaining)
                 (do (println "Vector has more with next:" (first remaining) "ON" (expose z))
                     (recur  (rest remaining)
-                            ;(evolve (first remaining) (-> z z/up z/rightmost (z/insert-child []) z/down) g c)))
-                            ;
-                            ;   So... the children need to put the zipper in the right place...
-                            ;
-                            (evolve (first remaining) (-> z z/up z/rightmost) g c)))
+                            (evolve (first remaining) (-> z z/rightmost) g c)))
                 z))))
 
 (defn zero-or-more-evolution [body z g c]
     (loop [result z]
         (if (failed? result)
-            (do (println "Zero-or-more failed" (expose (cleanup result)))
-                (mark (cleanup result)))
+            (z/up (cleanup result))
             (recur (evolve body result g c)))))
 
 (defn either-evolution [list-body z g c]
@@ -108,14 +103,22 @@
                     (fail z))
                 attempt))))
 
+(defn one-or-more-evolution [body z g c]
+    (let [first-result (evolve body z g c)]
+        (if (failed? first-result)
+            (fail z)
+            (zero-or-more-evolution body first-result g c))))
+
 (defn list-evolution [r z g c]
     (let [list-type (first r)
           list-body (rest r)]
         (cond
             (= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g c)
             (= list-type '|) (either-evolution list-body z g c)
+            (= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g c)
             true (end z (str "Unknown list-type: " list-type)))))
 
+; We need to move to the next char
 (defn string-evolution [r z g c]
     (if (< 1 (count r))
         (end z "Unable to handle multi-char terminals")
