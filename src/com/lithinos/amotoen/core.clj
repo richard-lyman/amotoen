@@ -9,17 +9,18 @@
 (ns com.lithinos.amotoen.core
     (:use (clojure pprint))
     (:require   [clojure.zip :as z])
-    (:import (java.util.regex Pattern)))
+    (:import    (java.util.regex Pattern)
+                (java.util UUID)))
 
 (def #^{:private true} grammar-grammar {
     :Start              :Expr
-    :Expr               [:_* "{" :_* '(+ :Rule) :_* "}" :_* :$]
+    :Expr               [:_* "{" :_* '(+ :Rule) :_* "}" :_*]
 ; Whitespace
     :Whitespace         '(| " " "\n" "\r" "\t")
     :_*                 '(* :Whitespace)
     :_                  '(+ :Whitespace)
 ; Non-Terminals
-    :Rule               [:_* :Keyword :_ :Body :_* "," :_*]
+    :Rule               [:_* :Keyword :_ :Body]
     :Keyword            [":" '(+ :ValidKeywordChar)]
     :ValidKeywordChar   '(| "A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z"
                             "a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k" "l" "m" "n" "o" "p" "q" "r" "s" "t" "u" "v" "w" "x" "y" "z"
@@ -36,9 +37,8 @@
     :MustFind           [["(" "&"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
     :MustNotFind        [["(" "!"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
     :Until              [["(" "%"]  :_      :ShortBody  :_* ")"]
-    :Terminal           '(| :DoubleQuotedString :EndOfInput)
+    :Terminal           '(| :DoubleQuotedString)
 ; Terminals
-    :EndOfInput         [":" "$"]
     :DoubleQuotedString ["\"" '(+ :DoubleQuotedStringContent) "\""] ; This allows for multi-char terminals...
         :DoubleQuotedStringContent  '(| :EscapedSlash :EscapedDoubleQuote :AnyNotDoubleQuote)
             :EscapedSlash               ["\\" "\\"]
@@ -55,6 +55,8 @@
 (defprotocol wrapped-input
     (has? [t] "")
     (move [t] "")
+    (back [t] "")
+    (roll [t n] "")
     (loca [t] "")
     (curr [t] ""))
 
@@ -63,8 +65,10 @@
         (reify wrapped-input
             (has? [t] (< (inc @location) (count input)))
             (move [t] (dosync (alter location inc)))
+            (back [t] (dosync (alter location dec)))
+            (roll [t n] (dosync (ref-set location n)))
             (loca [t] @location)
-            (curr [t] (subs input @location (inc @location))))))
+            (curr [t] (if (<= (count input) @location) "" (subs input @location (inc @location)))))))
 
 (declare evolve)
 (defn expose [z] (pr-str (z/root z)))
@@ -74,15 +78,26 @@
         (println (pprint (expose z)))
         (System/exit -1)))
 
+(def *indent* (ref 0))
+(defn gen-indent []
+    (loop [result   ""
+           count    @*indent*]
+        (if (< 0 count)
+            (recur (str result "  ") (dec count))
+            result)))
+
 (def *cycle-map* (ref {}))
 (defn keyword-evolution [r z g i]
-    (println (pr-str (curr i)) r (r @*cycle-map*))
+    (println (gen-indent) r (pr-str (curr i)))
     (when (r @*cycle-map*) (end z "Infinite cycle"))
     (dosync (alter *cycle-map* assoc r (loca i)))
+    (dosync (alter *indent* inc))
     (let [result    (if (= [] (z/node z))
                         (evolve (r g) (-> z (z/insert-child r) z/down) g i)
                         (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))]
         (dosync (alter *cycle-map* dissoc r))
+        (dosync (alter *indent* dec))
+        (println (gen-indent) r)
         result))
 
 (defn vector-evolution [r z g i]
@@ -102,15 +117,15 @@
             (z/up (cleanup result))
             (recur (evolve body result g i)))))
 
-; If an option succeeds - no other should be tried... make sure
 (defn either-evolution [list-body z g i]
-    (loop [remaining list-body]
-        (let [attempt (evolve (first remaining) z g i)]
-            (if (failed? attempt)
-                (if (seq (rest remaining))
-                    (recur (rest remaining))
-                    (fail z))
-                attempt))))
+    (let [rollback (loca i)]
+        (loop [remaining list-body]
+            (let [attempt (evolve (first remaining) z g i)]
+                (if (failed? attempt)
+                    (if (seq (rest remaining))
+                        (do (roll i rollback) (recur (rest remaining)))
+                        (fail z))
+                    attempt)))))
 
 (defn one-or-more-evolution [body z g i]
     (let [first-result (evolve body z g i)]
@@ -119,13 +134,14 @@
             (zero-or-more-evolution body first-result g i))))
 
 (defn until-evolution [body z g i]
+    (println (gen-indent) "--" body)
     (if (failed? (evolve body z g i))
         (let [result (-> z (z/insert-right (curr i)) z/right)]
-            (println "UNTIL MATCH!" (pr-str body) (expose result))
+            (println (gen-indent) "UNTIL MATCH!" (pr-str (curr i)) (expose result))
             (dosync (ref-set *cycle-map* {}))
             (move i)
             result)
-        (fail z)))
+        (do (println (gen-indent) "Failing on until of" (pr-str body)) (back i) (fail z))))
 
 (defn list-evolution [r z g i]
     (let [list-type (first r)
@@ -142,7 +158,7 @@
         (end z "Unable to handle multi-char terminals")
         (if (= r (curr i))
             (let [result (-> z (z/insert-right (curr i)) z/right)]
-                (println "MATCH!" (pr-str r) (expose result))
+                (println (gen-indent) "MATCH!" (pr-str r) (expose result))
                 (dosync (ref-set *cycle-map* {}))
                 (move i)
                 result)
