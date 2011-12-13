@@ -78,7 +78,7 @@
 (defn keyword-evolution [r z g i]
     (println (pr-str (curr i)) r (r @*cycle-map*))
     (when (r @*cycle-map*) (end z "Infinite cycle"))
-    (dosync (alter *cycle-map* assoc r (loca i))) ; When a rule leave's itself, it should be removed... or something
+    (dosync (alter *cycle-map* assoc r (loca i)))
     (let [result    (if (= [] (z/node z))
                         (evolve (r g) (-> z (z/insert-child r) z/down) g i)
                         (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))]
@@ -89,10 +89,12 @@
     (let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)] ; This isn't always what's wanted...
         (loop [remaining    (rest r)
                z            (evolve (first r) z g i)] ; If this fails everything should fail
-            (if (seq remaining)
-                (recur  (rest remaining)
-                        (evolve (first remaining) (-> z z/rightmost) g i))
-                z))))
+            (if (failed? z)
+                (fail (-> z z/up))
+                (if (seq remaining)
+                    (recur  (rest remaining)
+                            (evolve (first remaining) (-> z z/rightmost) g i))
+                    z)))))
 
 (defn zero-or-more-evolution [body z g i]
     (loop [result z]
