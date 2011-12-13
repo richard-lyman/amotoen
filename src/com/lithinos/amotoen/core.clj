@@ -86,12 +86,13 @@
     ;
     ;
            ;z            (-> z (z/insert-child [(evolve (first r) z g c)]) z/down)]
-           z            (evolve (first r) (-> z z/down) g c)
+           z            (evolve (first r) z g c)]
         (println "pre" (expose z))
         (if (seq remaining)
             (do (println "Vector has more with next:" (first remaining) "ON" (expose z))
                 (recur  (rest remaining)
-                        (-> z (z/insert-right (evolve (first remaining) z g c)) z/right)))
+                        ;(-> z (z/insert-right (evolve (first remaining) z g c)) z/right)))
+                        (evolve (first remaining) z g c)))
             z))))
 
 (defn zero-or-more-evolution [body z g c]
