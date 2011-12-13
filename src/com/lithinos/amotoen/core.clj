@@ -35,15 +35,15 @@
     :ZeroOrOne          [["(" "?"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
     :MustFind           [["(" "&"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
     :MustNotFind        [["(" "!"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
-    :Until              [["(" "="]  :_      :ShortBody  :_* ")"]
+    :Until              [["(" "^"]  :_      :ShortBody  :_* ")"]
     :Terminal           '(| :DoubleQuotedString :EndOfInput)
 ; Terminals
     :EndOfInput         [":" "$"]
-    :DoubleQuotedString ["\"" '(+ :DoubleQuotedStringContent) "\""]
+    :DoubleQuotedString ["\"" '(+ :DoubleQuotedStringContent) "\""] ; This allows for multi-char terminals...
         :DoubleQuotedStringContent  '(| :EscapedSlash :EscapedDoubleQuote :AnyNotDoubleQuote)
             :EscapedSlash               ["\\" "\\"]
             :EscapedDoubleQuote         ["\\" "\""]
-            :AnyNotDoubleQuote          '(= "\"")
+            :AnyNotDoubleQuote          '(^ "\"")
 })
 
 (def *fail-node* :this-marks-some-failed-evolution)
@@ -124,9 +124,9 @@
             (= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
             (= list-type '|) (either-evolution list-body z g i)
             (= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
+            (= list-type '^) (evolve list-body z g i)   ; This  will eventually be more...
             true (end z (str "Unknown list-type: " list-type)))))
 
-; We need to move to the next char
 (defn string-evolution [r z g i]
     (if (< 1 (count r))
         (end z "Unable to handle multi-char terminals")
@@ -139,7 +139,7 @@
             (fail z))))
 
 (defn evolve [r z g i]
-    (println "\t" (pr-str r))
+    ;(println "\t" (pr-str r))
     (cond
         (keyword? r)    (keyword-evolution r z g i)
         (vector? r)     (vector-evolution r z g i)
