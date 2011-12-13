@@ -55,6 +55,7 @@
 (defprotocol wrapped-input
     (has? [t] "")
     (move [t] "")
+    (loca [t] "")
     (curr [t] ""))
 
 (defn wrap [input]
@@ -62,87 +63,91 @@
         (reify wrapped-input
             (has? [t] (< (inc @location) (count input)))
             (move [t] (dosync (alter location inc)))
+            (loca [t] @location)
             (curr [t] (subs input @location (inc @location))))))
 
 (declare evolve)
-(defn expose [z] (z/root z))
+(defn expose [z] (pr-str (z/root z)))
 (defn end [z m]
     (do (println m)
         (println "Last known good:")
         (println (pprint (expose z)))
         (System/exit -1)))
 
-(defn keyword-evolution [r z g c]
+(def *cycle-map* (ref {}))
+(defn keyword-evolution [r z g i]
+    (println r (r @*cycle-map*))
+    (when (r @*cycle-map*) (end z "Infinite cycle"))
+    (dosync (alter *cycle-map* assoc r (loca i))) ; When a rule leave's itself, it should be removed... or something
     (if (= [] (z/node z))
-        (evolve (r g) (-> z (z/insert-child r) z/down) g c)
-        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g c)))
+        (evolve (r g) (-> z (z/insert-child r) z/down) g i)
+        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i)))
 
-(defn vector-evolution [r z g c]
+(defn vector-evolution [r z g i]
     (let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)]
         (loop [remaining    (rest r)
-               z            (evolve (first r) z g c)]
-            (println "pre" (expose z))
+               z            (evolve (first r) z g i)]
             (if (seq remaining)
-                (do (println "Vector has more with next:" (first remaining) "ON" (expose z))
-                    (recur  (rest remaining)
-                            (evolve (first remaining) (-> z z/rightmost) g c)))
+                (recur  (rest remaining)
+                        (evolve (first remaining) (-> z z/rightmost) g i))
                 z))))
 
-(defn zero-or-more-evolution [body z g c]
+(defn zero-or-more-evolution [body z g i]
     (loop [result z]
         (if (failed? result)
             (z/up (cleanup result))
-            (recur (evolve body result g c)))))
+            (recur (evolve body result g i)))))
 
-(defn either-evolution [list-body z g c]
+(defn either-evolution [list-body z g i]
     (loop [remaining list-body]
-        (let [attempt (evolve (first remaining) z g c)]
+        (let [attempt (evolve (first remaining) z g i)]
             (if (failed? attempt)
                 (if (seq (rest remaining))
                     (recur (rest remaining))
                     (fail z))
                 attempt))))
 
-(defn one-or-more-evolution [body z g c]
-    (let [first-result (evolve body z g c)]
+(defn one-or-more-evolution [body z g i]
+    (let [first-result (evolve body z g i)]
         (if (failed? first-result)
             (fail z)
-            (zero-or-more-evolution body first-result g c))))
+            (zero-or-more-evolution body first-result g i))))
 
-(defn list-evolution [r z g c]
+(defn list-evolution [r z g i]
     (let [list-type (first r)
           list-body (rest r)]
         (cond
-            (= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g c)
-            (= list-type '|) (either-evolution list-body z g c)
-            (= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g c)
+            (= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
+            (= list-type '|) (either-evolution list-body z g i)
+            (= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
             true (end z (str "Unknown list-type: " list-type)))))
 
 ; We need to move to the next char
-(defn string-evolution [r z g c]
+(defn string-evolution [r z g i]
     (if (< 1 (count r))
         (end z "Unable to handle multi-char terminals")
-        (if (= r c)
-            (do (println "MATCH!" r)
-                (-> z (z/insert-right c) z/right))
+        (if (= r (curr i))
+            (do (println "MATCH!" (pr-str r) (expose z))
+                (move i)
+                (dosync (ref-set *cycle-map* {}))
+                (-> z (z/insert-right (curr i)) z/right))
             (fail z))))
 
-(defn evolve [r z g c]
-    (println (expose z) "\t\t" (pr-str r))
+(defn evolve [r z g i]
+    ;(println (expose z) "\t\t" (pr-str r))
     (cond
-        (keyword? r)    (keyword-evolution r z g c)
-        (vector? r)     (vector-evolution r z g c)
-        (list? r)       (list-evolution r z g c)
-        (string? r)     (string-evolution r z g c)
+        (keyword? r)    (keyword-evolution r z g i)
+        (vector? r)     (vector-evolution r z g i)
+        (list? r)       (list-evolution r z g i)
+        (string? r)     (string-evolution r z g i)
         true (end z (str "Unknown rule type:" (pr-str r)))))
 
 (defn pegasus [grammar input-wrapped]
-    (loop [asts (list (-> (z/vector-zip [])))
-           c    (curr input-wrapped)]
+    (loop [asts (list (-> (z/vector-zip [])))]
         (if (has? input-wrapped)
-            (recur  (doall (map #(evolve :Start % grammar c) asts)) ; Flatten and de-nullify
-                    (do (move input-wrapped) (curr input-wrapped)))
-            (expose (first (doall (map #(evolve :Something-goes-here % grammar c) asts)))))))
+            (recur  (doall (map #(evolve :Start % grammar input-wrapped) asts)) ; Flatten and de-nullify
+                    )
+            (expose (first (doall (map #(evolve :Something-goes-here % grammar input-wrapped) asts)))))))
 
 (let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
     (println (pprint (z/root result))))
