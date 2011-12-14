@@ -147,7 +147,8 @@
     (let [list-type (first r)
           list-body (rest r)]
         (cond
-            (= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
+            ;(= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
+            (= list-type '*) (zero-or-more-evolution (first list-body) z g i)
             (= list-type '|) (either-evolution list-body z g i)
             (= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
             (= list-type '%) (until-evolution (first list-body) z g i)   ; This  will eventually be more...
@@ -196,34 +197,4 @@
 ; user=> (dosync (ref-set z (-> @z (insert-right :qwe) right)))
 ; user=> (root @z)
 ; [:Start [:Bob :qwe]]
-
-
-;[:Start
-;    [:Expr
-;        [
-;            [:_* []] 
-;            "{" 
-;            [:_* []]
-;            [:Rule
-;                [
-;                    [:_* []]
-;                    [:Keyword
-;                        [
-;                            []
-;                            ":"
-;                            [:ValidKeywordChar "S" []]
-;                            [:_ [:Whitespace " " []]
-;                            [:Body
-;                                [:Terminal
-;                                    [:DoubleQuotedString
-;                                        [
-;                                            []
-;                                            "\""
-;                                            [:DoubleQuotedStringContent
-;                                                [:AnyNotDoubleQuote
-;                                                    "a"
-;                                                    [:DoubleQuotedStringContent
-;                                                        [:AnyNotDoubleQuote
-;                                                            "\""]]]]]]]]]]]]]]]]
-;
 
