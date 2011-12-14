@@ -46,11 +46,19 @@
             :AnyNotDoubleQuote          '(% "\"")
 })
 
+(def *indent* (ref 0))
+(defn gen-indent []
+    (loop [result   ""
+           count    @*indent*]
+        (if (< 0 count)
+            (recur (str result "  ") (dec count))
+            result)))
+
 (def *fail-node* :this-marks-some-failed-evolution)
 (defn fail [z] (-> z (z/replace *fail-node*)))
 (defn failed? [z] (= (z/node z) *fail-node*))
-(defn cleanup [z] (-> z z/remove))
-(defn mark [z] (println (z/lefts z) "X" (z/rights z) "IN" (z/node (z/prev z)) "HAVING" (z/children z) "THROUGH" (z/path z) "FULL" (z/root z)) z)
+(defn cleanup [z] (println "Cleaning:" (z/node z)) (-> z z/remove)) ; Tried to cleanup, but 'a' gets dropped...
+(defn mark [z] (println (gen-indent) (z/lefts z) "X" (z/rights z) "IN" (z/node (z/prev z)) "HAVING" (try (z/children z) (catch Exception e "NO CHILREN")) "THROUGH" (z/path z) "FULL" (z/root z)) z)
 
 (defprotocol wrapped-input
     (has? [t] "")
@@ -78,14 +86,6 @@
         (println (pprint (expose z)))
         (System/exit -1)))
 
-(def *indent* (ref 0))
-(defn gen-indent []
-    (loop [result   ""
-           count    @*indent*]
-        (if (< 0 count)
-            (recur (str result "  ") (dec count))
-            result)))
-
 (def *cycle-map* (ref {}))
 (defn keyword-evolution [r z g i]
     (println (gen-indent) r (pr-str (curr i)))
@@ -101,11 +101,18 @@
         result))
 
 (defn vector-evolution [r z g i]
-    (let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)] ; This isn't always what's wanted...
+    ;(let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)] ; This isn't always what's wanted...
+    ;(let [z (-> z (z/insert-right []) z/right)]
+    (let [z z]
         (loop [remaining    (rest r)
                z            (evolve (first r) z g i)]
             (if (failed? z)
-                (fail (-> z z/up)) ; Possible problem here
+                (do
+                    (println (gen-indent) "Vector failed")
+                    (mark z)
+                    (mark (z/up z))
+                    (fail (-> z z/up)) ; Possible problem here
+                    )
                 (if (seq remaining)
                     (recur  (rest remaining)
                             (evolve (first remaining) (-> z z/rightmost) g i))
@@ -150,7 +157,8 @@
             ;(= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
             (= list-type '*) (zero-or-more-evolution (first list-body) z g i)
             (= list-type '|) (either-evolution list-body z g i)
-            (= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
+            ;(= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
+            (= list-type '+) (one-or-more-evolution (first list-body) z g i)
             (= list-type '%) (until-evolution (first list-body) z g i)   ; This  will eventually be more...
             true (end z (str "Unknown list-type: " (pr-str list-type))))))
 
