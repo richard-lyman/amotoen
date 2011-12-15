@@ -57,7 +57,7 @@
 (def *fail-node* :this-marks-some-failed-evolution)
 (defn fail [z] (-> z (z/replace *fail-node*)))
 (defn failed? [z] (= (z/node z) *fail-node*))
-(defn cleanup [z] (println "Cleaning:" (z/node z)) (-> z z/remove)) ; Tried to cleanup, but 'a' gets dropped...
+(defn cleanup [z] (if (= (z/leftmost z) z) (-> z z/up z/remove) (-> z z/remove)))
 (defn mark [z] (println (gen-indent) (z/lefts z) "X" (z/rights z) "IN" (z/node (z/prev z)) "HAVING" (try (z/children z) (catch Exception e "NO CHILREN")) "THROUGH" (z/path z) "FULL" (z/root z)) z)
 
 (defprotocol wrapped-input
