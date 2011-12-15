@@ -134,10 +134,8 @@
             (z/up (zero-or-more-evolution body first-result g i)))))
 
 (defn until-evolution [body z g i]
-    (println (gen-indent) "--" body)
     (if (failed? (evolve body z g i))
         (let [result (-> z (z/insert-right (curr i)) z/right)]
-            (println (gen-indent) "UNTIL MATCH!" (pr-str (curr i)) (expose result))
             (dosync (ref-set *cycle-map* {}))
             (move i)
             result)
@@ -156,13 +154,12 @@
 (defn string-evolution [r z g i]
     (if (< 1 (count r))
         (end z "Unable to handle multi-char terminals")
-        (if (= r (curr i))
+        (if (not= r (curr i))
+            (fail z)
             (let [result (-> z (z/insert-right (curr i)) z/right)]
-                (println (gen-indent) "MATCH!" (pr-str r) (expose result))
                 (dosync (ref-set *cycle-map* {}))
                 (move i)
-                result)
-            (fail z))))
+                result))))
 
 (defn evolve [r z g i]
     ;(println "\t" (pr-str r))
