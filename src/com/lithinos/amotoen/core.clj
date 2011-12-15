@@ -55,9 +55,9 @@
             result)))
 
 (def *fail-node* :this-marks-some-failed-evolution)
-(defn fail [z] (-> z (z/replace *fail-node*)))
+(defn fail [z] (z/replace z *fail-node*))
 (defn failed? [z] (= (z/node z) *fail-node*))
-(defn cleanup [z] (if (= (z/leftmost z) z) (-> z z/up z/remove) (-> z z/remove)))
+(defn cleanup [z] (if (= (z/leftmost z) z) (-> z z/up z/remove) (z/remove z)))
 (defn mark [z] (println (gen-indent) (z/lefts z) "X" (z/rights z) "IN" (z/node (z/prev z)) "HAVING" (try (z/children z) (catch Exception e "NO CHILREN")) "THROUGH" (z/path z) "FULL" (z/root z)) z)
 
 (defprotocol wrapped-input
@@ -97,26 +97,19 @@
                         (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))]
         (dosync (alter *cycle-map* dissoc r))
         (dosync (alter *indent* dec))
-        (println (gen-indent) r)
-        result))
+        (if (= (z/node result) [r])
+            (z/remove result)
+            result)))
 
 (defn vector-evolution [r z g i]
-    ;(let [z (-> z (z/insert-right []) z/right (z/insert-child []) z/down)] ; This isn't always what's wanted...
-    ;(let [z (-> z (z/insert-right []) z/right)]
-    (let [z z]
-        (loop [remaining    (rest r)
-               z            (evolve (first r) z g i)]
-            (if (failed? z)
-                (do
-                    (println (gen-indent) "Vector failed")
-                    (mark z)
-                    (mark (z/up z))
-                    (fail (-> z z/up)) ; Possible problem here
-                    )
-                (if (seq remaining)
-                    (recur  (rest remaining)
-                            (evolve (first remaining) (-> z z/rightmost) g i))
-                    z)))))
+    (loop [remaining    (rest r)
+           z            (evolve (first r) z g i)]
+        (if (failed? z)
+            (fail (z/up z))
+            (if (seq remaining)
+                (recur  (rest remaining)
+                        (evolve (first remaining) (z/rightmost z) g i))
+                (z/up z)))))
 
 (defn zero-or-more-evolution [body z g i]
     (loop [result z]
@@ -132,13 +125,13 @@
                     (if (seq (rest remaining))
                         (do (roll i rollback) (recur (rest remaining)))
                         (fail z))
-                    attempt)))))
+                    (z/up attempt))))))
 
 (defn one-or-more-evolution [body z g i]
     (let [first-result (evolve body z g i)]
         (if (failed? first-result)
             (fail z)
-            (zero-or-more-evolution body first-result g i))))
+            (z/up (zero-or-more-evolution body first-result g i)))))
 
 (defn until-evolution [body z g i]
     (println (gen-indent) "--" body)
@@ -154,10 +147,8 @@
     (let [list-type (first r)
           list-body (rest r)]
         (cond
-            ;(= list-type '*) (zero-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
             (= list-type '*) (zero-or-more-evolution (first list-body) z g i)
             (= list-type '|) (either-evolution list-body z g i)
-            ;(= list-type '+) (one-or-more-evolution (first list-body) (-> z (z/insert-right []) z/right) g i)
             (= list-type '+) (one-or-more-evolution (first list-body) z g i)
             (= list-type '%) (until-evolution (first list-body) z g i)   ; This  will eventually be more...
             true (end z (str "Unknown list-type: " (pr-str list-type))))))
@@ -182,14 +173,14 @@
         (string? r)     (string-evolution r z g i)
         true (end z (str "Unknown rule type:" (pr-str r)))))
 
-#_(defn pegasus [grammar input-wrapped]
-    (loop [asts (list (-> (z/vector-zip [])))]
-        (if (has? input-wrapped)
-            (recur  (doall (map #(evolve :Start % grammar input-wrapped) asts)) ; Flatten and de-nullify
-                    )
-            (expose (first (doall (map #(evolve :Something-goes-here % grammar input-wrapped) asts)))))))
+;(defn pegasus [grammar input-wrapped]
+;    (loop [asts (list (z/vector-zip []))]
+;        (if (has? input-wrapped)
+;            (recur  (doall (map #(evolve :Start % grammar input-wrapped) asts)) ; Flatten and de-nullify
+;                    )
+;            (expose (first (doall (map #(evolve :Something-goes-here % grammar input-wrapped) asts)))))))
 (defn pegasus [grammar input-wrapped]
-    (evolve :Start (-> (z/vector-zip [])) grammar input-wrapped))
+    (evolve :Start (z/vector-zip []) grammar input-wrapped))
 
 (let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
     (println (pprint (z/root result))))
