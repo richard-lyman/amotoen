@@ -55,7 +55,7 @@
             result)))
 
 (def *fail-node* :this-marks-some-failed-evolution)
-(defn fail [z] (z/replace z *fail-node*))
+(defn fail [z] (z/up (z/replace z *fail-node*)))
 (defn failed? [z] (= (z/node z) *fail-node*))
 (defn mark [z]
     (println
@@ -76,10 +76,11 @@
     z)
 (defn cleanup [z]
     (println "Removing:" (z/node z) (mark z))
-    (if (= (z/leftmost z) z)
+    (if (or (= (z/leftmost z) z)
+            (nil? (z/prev z)))
         (do (println "Upping before remove:" (z/node z) (mark z))
-            (-> z z/up z/remove))
-        (z/remove z)))
+            z);(-> z z/up z/remove))
+        (z/up z)));(z/remove z)))
 
 (defprotocol wrapped-input
     (has? [t] "")
@@ -113,24 +114,41 @@
     (when (r @*cycle-map*) (end z "Infinite cycle"))
     (dosync (alter *cycle-map* assoc r (loca i)))
     (dosync (alter *indent* inc))
-    (let [result    (if (= [] (z/node z))
-                        (evolve (r g) (-> z (z/insert-child r) z/down) g i)
-                        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))
-          result2   (do (when (nil? result) (println "Result is nil:" (z/root result)) (mark result))
-                        (if (= (z/node result) [r]) (z/remove result) result))
-          result3   (do (when (nil? result2) (println "Result2 is nil"))
-                        (if (failed? result2)
-                            result2
-                            (do
-                                (println "Upping:" (z/root result2))
-                                (mark result2)
-                                ;(z/up result2)
-                                result2
-                                )))
-                        ]
+    (let [result
+                    (if (z/prev z)
+                        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i)
+                        (evolve (r g) (-> z (z/insert-child r) z/down) g i))]
         (dosync (alter *cycle-map* dissoc r))
         (dosync (alter *indent* dec))
-        result3))
+        result))
+;    (println (gen-indent) r (pr-str (curr i)))
+;    (when (r @*cycle-map*) (end z "Infinite cycle"))
+;    (dosync (alter *cycle-map* assoc r (loca i)))
+;    (dosync (alter *indent* inc))
+;    (let [result    (if (= [] (z/node z))
+;                        (evolve (r g) (-> z (z/insert-child r) z/down) g i)
+;                        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))
+;          result2   (do (when (nil? result)
+;                            (println "Result is nil:" result)
+;                            (mark result))
+;                        (if (nil? result)
+;                            (do (println "Something is wrong") (z/vector-zip [:something-is-wrong]))
+;                            (if (= (z/node result) [r])
+;                                (do (println "Removing node because it's an empty [r]") (z/remove result))
+;                                result)))
+;          result3   (do (when (nil? result2) (println "Result2 is nil"))
+;                        (if (failed? result2)
+;                            result2
+;                            (do
+;                                (println "Upping:" (z/root result2)) ; Why does it up the root??
+;                                (mark result2)
+;                                ;(z/up result2)
+;                                result2
+;                                )))
+;                        ]
+;        (dosync (alter *cycle-map* dissoc r))
+;        (dosync (alter *indent* dec))
+;        result3))
 
 (defn vector-evolution [r z g i]
     (loop [remaining    (rest r)
@@ -143,10 +161,16 @@
                 (z/up z)))))
 
 (defn zero-or-more-evolution [body z g i]
+    (println "Checking zero-or-more:" z)
+    (mark z)
     (loop [result z]
         (if (failed? result)
             (z/up (cleanup result))
-            (recur (evolve body result g i)))))
+            (let [temp (evolve body result g i)]
+                (println "Recurring on:" temp)
+                (println "\tat:" (curr i))
+                (mark temp)
+                (recur temp)))))
 
 (defn either-evolution [list-body z g i]
     (let [rollback (loca i)]
@@ -209,13 +233,13 @@
 ;                    )
 ;            (expose (first (doall (map #(evolve :Something-goes-here % grammar input-wrapped) asts)))))))
 (defn pegasus [grammar input-wrapped]
-    (evolve :Start (z/vector-zip []) grammar input-wrapped))
+    (evolve (:Start grammar) (z/down (z/vector-zip [:Start])) grammar input-wrapped))
 
 (let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
     (println (pprint (z/root result))))
 
 
-
+; user=> (require '[clojure.zip :as z])
 ; user=> (def z (ref (-> (vector-zip [:Start]) down)))
 ; user=> (node @z)
 ; :Start
