@@ -57,8 +57,29 @@
 (def *fail-node* :this-marks-some-failed-evolution)
 (defn fail [z] (z/replace z *fail-node*))
 (defn failed? [z] (= (z/node z) *fail-node*))
-(defn cleanup [z] (if (= (z/leftmost z) z) (-> z z/up z/remove) (z/remove z)))
-(defn mark [z] (println (gen-indent) (z/lefts z) "X" (z/rights z) "IN" (z/node (z/prev z)) "HAVING" (try (z/children z) (catch Exception e "NO CHILREN")) "THROUGH" (z/path z) "FULL" (z/root z)) z)
+(defn mark [z]
+    (println
+        "NODE:"
+        (try (pr-str (z/node z)) (catch Exception e "NO NODE"))
+        "\n\tLEFT"
+        (try (pr-str (z/lefts z)) (catch Exception e "NO LEFT"))
+        "\n\tRIGHT"
+        (try (pr-str (z/rights z)) (catch Exception e "NO RIGHT"))
+        "\n\tPREV" 
+        (try (pr-str (z/node (z/prev z))) (catch Exception e "NO PREV"))
+        "\n\tCHILDREN"
+        (try (pr-str (z/children z)) (catch Exception e "NO CHILDREN"))
+        "\n\tPATH"
+        (try (pr-str (z/path z)) (catch Exception e "NO PATH"))
+        "\n\tROOT"
+        (try (pr-str (z/root z)) (catch Exception e "NO ROOT")))
+    z)
+(defn cleanup [z]
+    (println "Removing:" (z/node z) (mark z))
+    (if (= (z/leftmost z) z)
+        (do (println "Upping before remove:" (z/node z) (mark z))
+            (-> z z/up z/remove))
+        (z/remove z)))
 
 (defprotocol wrapped-input
     (has? [t] "")
@@ -94,12 +115,22 @@
     (dosync (alter *indent* inc))
     (let [result    (if (= [] (z/node z))
                         (evolve (r g) (-> z (z/insert-child r) z/down) g i)
-                        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))]
+                        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))
+          result2   (do (when (nil? result) (println "Result is nil:" (z/root result)) (mark result))
+                        (if (= (z/node result) [r]) (z/remove result) result))
+          result3   (do (when (nil? result2) (println "Result2 is nil"))
+                        (if (failed? result2)
+                            result2
+                            (do
+                                (println "Upping:" (z/root result2))
+                                (mark result2)
+                                ;(z/up result2)
+                                result2
+                                )))
+                        ]
         (dosync (alter *cycle-map* dissoc r))
         (dosync (alter *indent* dec))
-        (if (= (z/node result) [r])
-            (z/remove result)
-            result)))
+        result3))
 
 (defn vector-evolution [r z g i]
     (loop [remaining    (rest r)
@@ -159,6 +190,7 @@
             (let [result (-> z (z/insert-right (curr i)) z/right)]
                 (dosync (ref-set *cycle-map* {}))
                 (move i)
+                (println (gen-indent) "Match:" r)
                 result))))
 
 (defn evolve [r z g i]
