@@ -13,7 +13,8 @@
                 (java.util UUID)))
 
 (def #^{:private true} grammar-grammar {
-    :Start              :Expr
+    ;:Start              :Expr
+    :Start              ['(* " ") "{" ":" "S" " " "\"" "a" "\"" "}"]
     :Expr               [:_* "{" :_* '(+ :Rule) :_* "}" :_*]
 ; Whitespace
     :Whitespace         '(| " " "\n" "\r" "\t")
@@ -53,10 +54,6 @@
         (if (< 0 count)
             (recur (str result "  ") (dec count))
             result)))
-
-(def *fail-node* :this-marks-some-failed-evolution)
-(defn fail [z] (z/up (z/replace z *fail-node*)))
-(defn failed? [z] (= (z/node z) *fail-node*))
 (defn mark [z]
     (println
         "NODE:"
@@ -74,6 +71,10 @@
         "\n\tROOT"
         (try (pr-str (z/root z)) (catch Exception e "NO ROOT")))
     z)
+
+(def *fail-node* :this-marks-some-failed-evolution)
+(defn fail [z] (println "Failing:" (z/node z)) (mark z) (z/up (z/replace z *fail-node*)))
+(defn failed? [z] (= (z/node z) *fail-node*))
 (defn cleanup [z]
     (println "Removing:" (z/node z) (mark z))
     (if (or (= (z/leftmost z) z)
@@ -121,34 +122,6 @@
         (dosync (alter *cycle-map* dissoc r))
         (dosync (alter *indent* dec))
         result))
-;    (println (gen-indent) r (pr-str (curr i)))
-;    (when (r @*cycle-map*) (end z "Infinite cycle"))
-;    (dosync (alter *cycle-map* assoc r (loca i)))
-;    (dosync (alter *indent* inc))
-;    (let [result    (if (= [] (z/node z))
-;                        (evolve (r g) (-> z (z/insert-child r) z/down) g i)
-;                        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i))
-;          result2   (do (when (nil? result)
-;                            (println "Result is nil:" result)
-;                            (mark result))
-;                        (if (nil? result)
-;                            (do (println "Something is wrong") (z/vector-zip [:something-is-wrong]))
-;                            (if (= (z/node result) [r])
-;                                (do (println "Removing node because it's an empty [r]") (z/remove result))
-;                                result)))
-;          result3   (do (when (nil? result2) (println "Result2 is nil"))
-;                        (if (failed? result2)
-;                            result2
-;                            (do
-;                                (println "Upping:" (z/root result2)) ; Why does it up the root??
-;                                (mark result2)
-;                                ;(z/up result2)
-;                                result2
-;                                )))
-;                        ]
-;        (dosync (alter *cycle-map* dissoc r))
-;        (dosync (alter *indent* dec))
-;        result3))
 
 (defn vector-evolution [r z g i]
     (loop [remaining    (rest r)
@@ -160,17 +133,12 @@
                         (evolve (first remaining) (z/rightmost z) g i))
                 (z/up z)))))
 
-(defn zero-or-more-evolution [body z g i]
-    (println "Checking zero-or-more:" z)
-    (mark z)
-    (loop [result z]
+(defn zero-or-more-evolution [r z g i]
+    (println "Trying:" (pr-str r) (pr-str (curr i)))
+    (loop [result (evolve r z g i)]
         (if (failed? result)
-            (z/up (cleanup result))
-            (let [temp (evolve body result g i)]
-                (println "Recurring on:" temp)
-                (println "\tat:" (curr i))
-                (mark temp)
-                (recur temp)))))
+            (do (println "Failed:" (pr-str r) (pr-str (curr i))) (cleanup result))
+            (do (println "Success:" (pr-str r) (pr-str (curr i)) (mark result)) (recur (evolve r result g i))))))
 
 (defn either-evolution [list-body z g i]
     (let [rollback (loca i)]
@@ -198,7 +166,8 @@
 
 (defn list-evolution [r z g i]
     (let [list-type (first r)
-          list-body (rest r)]
+          list-body (rest r)
+          z         (-> z (z/insert-right [list-type]) z/right z/down)]
         (cond
             (= list-type '*) (zero-or-more-evolution (first list-body) z g i)
             (= list-type '|) (either-evolution list-body z g i)
@@ -207,18 +176,19 @@
             true (end z (str "Unknown list-type: " (pr-str list-type))))))
 
 (defn string-evolution [r z g i]
+    (println "String evo:" (pr-str r) (pr-str (curr i)))
     (if (< 1 (count r))
         (end z "Unable to handle multi-char terminals")
         (if (not= r (curr i))
-            (fail z)
-            (let [result (-> z (z/insert-right (curr i)) z/right)]
+            (do (println "Str-evo failed") (fail z))
+            (do (println "Str-evo success") (let [result (-> z (z/insert-right (curr i)) z/right)]
                 (dosync (ref-set *cycle-map* {}))
                 (move i)
                 (println (gen-indent) "Match:" r)
-                result))))
+                result)))))
 
 (defn evolve [r z g i]
-    ;(println "\t" (pr-str r))
+    (println "\t" (pr-str r))
     (cond
         (keyword? r)    (keyword-evolution r z g i)
         (vector? r)     (vector-evolution r z g i)
