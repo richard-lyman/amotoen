@@ -9,86 +9,50 @@
 (ns com.lithinos.amotoen.core
     (:use (clojure pprint))
     (:require   [clojure.zip :as z])
-    (:import    (java.util.regex Pattern)
-                (java.util UUID)))
+    (:import    (java.util.regex Pattern)))
 
 (def #^{:private true} grammar-grammar {
-    ;:Start              :Expr
-    :Start              ['(* " ") "{" ":" "S" " " "\"" "a" "\"" "}"]
-    :Expr               [:_* "{" :_* '(+ :Rule) :_* "}" :_*]
-; Whitespace
+    :Start              :Grammar
     :Whitespace         '(| " " "\n" "\r" "\t")
     :_*                 '(* :Whitespace)
-    :_                  '(+ :Whitespace)
+    :_                  [:Whitespace '(* :Whitespace)]
 ; Non-Terminals
+    :Grammar            ["{" :Rule '(* :Rule) :_* "}"]
     :Rule               [:_* :Keyword :_ :Body]
-    :Keyword            [":" '(+ :ValidKeywordChar)]
+    :Keyword            [":" :ValidKeywordChar '(* :ValidKeywordChar)]
     :ValidKeywordChar   '(| "A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z"
                             "a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k" "l" "m" "n" "o" "p" "q" "r" "s" "t" "u" "v" "w" "x" "y" "z"
                             "0" "1" "2" "3" "4" "5" "6" "7" "8" "9" ":" "/" "*" "+" "!" "_" "?" "-")
-    :ShortBody          '(| :Keyword :Terminal)
-    :Body               '(| :Keyword :Grouping :Terminal)
-    :Bodies             [:Body '(* [:_* :Body])]
-    :Grouping           '(| :Sequence :Either :ZeroOrMore :OneOrMore :ZeroOrOne :MustFind :MustNotFind)
-    :Sequence           ["["        :_*     :Bodies     :_* "]"]
-    :Either             [["(" "|"]  :_      :Bodies     :_* ")"]
-    :ZeroOrMore         [["(" "*"]  :_      :Body       :_* ")"]
-    :OneOrMore          [["(" "+"]  :_      :Body       :_* ")"]
-    :ZeroOrOne          [["(" "?"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
-    :MustFind           [["(" "&"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
-    :MustNotFind        [["(" "!"]  :_      :Body       :_* ")"] ; Not used in grammar-grammar
-    :Until              [["(" "%"]  :_      :ShortBody  :_* ")"]
-    :Terminal           '(| :DoubleQuotedString)
-; Terminals
-    :DoubleQuotedString ["\"" '(+ :DoubleQuotedStringContent) "\""] ; This allows for multi-char terminals...
-        :DoubleQuotedStringContent  '(| :EscapedSlash :EscapedDoubleQuote :AnyNotDoubleQuote)
-            :EscapedSlash               ["\\" "\\"]
-            :EscapedDoubleQuote         ["\\" "\""]
-            :AnyNotDoubleQuote          '(% "\"")
+    :Body               '(| :Keyword :Grouping :DoubleQuotedString)
+    :Grouping           '(| :Sequence :Either :ZeroOrMore :ZeroOrOne :MustNotFind :AnyNot)
+    :Sequence           ["["        :_* [:Body '(* [:_* :Body])]    :_* "]"]
+    :Either             [["(" "|"]  :_  [:Body '(* [:_* :Body])]    :_* ")"]
+    :ZeroOrMore         [["(" "*"]  :_  :Body                       :_* ")"]
+    :ZeroOrOne          [["(" "?"]  :_  :Body                       :_* ")"]
+    :AnyNot             [["(" "%"]  :_  '(| :Keyword :QuotedChar)   :_* ")"]
+; Terminal
+    :QuotedChar         ["\"" '(| :EscapedSlash :EscapedDoubleQuote :AnyNotDoubleQuote) "\""]
+    :EscapedSlash       ["\\" "\\"]
+    :EscapedDoubleQuote ["\\" "\""]
+    :AnyNotDoubleQuote  '(% "\"")
 })
 
 (def *indent* (ref 0))
-(defn gen-indent []
-    (loop [result   ""
-           count    @*indent*]
-        (if (< 0 count)
-            (recur (str result "  ") (dec count))
-            result)))
+(defn gen-indent [] (apply str (take @*indent* (repeat "  "))))
 (defn mark [z]
     (println
-        "NODE:"
-        (try (pr-str (z/node z)) (catch Exception e "NO NODE"))
-        "\n\tLEFT"
-        (try (pr-str (z/lefts z)) (catch Exception e "NO LEFT"))
-        "\n\tRIGHT"
-        (try (pr-str (z/rights z)) (catch Exception e "NO RIGHT"))
-        "\n\tPREV" 
-        (try (pr-str (z/node (z/prev z))) (catch Exception e "NO PREV"))
-        "\n\tCHILDREN"
-        (try (pr-str (z/children z)) (catch Exception e "NO CHILDREN"))
-        "\n\tPATH"
-        (try (pr-str (z/path z)) (catch Exception e "NO PATH"))
-        "\n\tROOT"
-        (try (pr-str (z/root z)) (catch Exception e "NO ROOT")))
+        "NODE:"         (try (pr-str (z/node z)) (catch Exception e "NO NODE"))
+        "\n\tLEFT"      (try (pr-str (z/lefts z)) (catch Exception e "NO LEFT"))
+        "\n\tRIGHT"     (try (pr-str (z/rights z)) (catch Exception e "NO RIGHT"))
+        "\n\tPREV"      (try (pr-str (z/node (z/prev z))) (catch Exception e "NO PREV"))
+        "\n\tCHILDREN"  (try (pr-str (z/children z)) (catch Exception e "NO CHILDREN"))
+        "\n\tPATH"      (try (pr-str (z/path z)) (catch Exception e "NO PATH"))
+        "\n\tROOT"      (try (pr-str (z/root z)) (catch Exception e "NO ROOT")))
     z)
-
-(def *fail-node* :this-marks-some-failed-evolution)
-(defn fail [z] (println "Failing:" (z/node z)) (mark z) (z/up (z/replace z *fail-node*)))
-(defn failed? [z] (= (z/node z) *fail-node*))
-(defn cleanup [z]
-    (println "Removing:" (z/node z) (mark z))
-    (if (or (= (z/leftmost z) z)
-            (nil? (z/prev z)))
-        (do (println "Upping before remove:" (z/node z) (mark z))
-            z);(-> z z/up z/remove))
-        (z/up z)));(z/remove z)))
 
 (defprotocol wrapped-input
     (has? [t] "")
     (move [t] "")
-    (back [t] "")
-    (roll [t n] "")
-    (loca [t] "")
     (curr [t] ""))
 
 (defn wrap [input]
@@ -96,116 +60,44 @@
         (reify wrapped-input
             (has? [t] (< (inc @location) (count input)))
             (move [t] (dosync (alter location inc)))
-            (back [t] (dosync (alter location dec)))
-            (roll [t n] (dosync (ref-set location n)))
-            (loca [t] @location)
             (curr [t] (if (<= (count input) @location) "" (subs input @location (inc @location)))))))
 
 (declare evolve)
-(defn expose [z] (pr-str (z/root z)))
-(defn end [z m]
-    (do (println m)
-        (println "Last known good:")
-        (println (pprint (expose z)))
-        (System/exit -1)))
-
-(def *cycle-map* (ref {}))
-(defn keyword-evolution [r z g i]
-    (println (gen-indent) r (pr-str (curr i)))
-    (when (r @*cycle-map*) (end z "Infinite cycle"))
-    (dosync (alter *cycle-map* assoc r (loca i)))
-    (dosync (alter *indent* inc))
-    (let [result
-                    (if (z/prev z)
-                        (evolve (r g) (-> z (z/insert-right [r]) z/right z/down) g i)
-                        (evolve (r g) (-> z (z/insert-child r) z/down) g i))]
-        (dosync (alter *cycle-map* dissoc r))
-        (dosync (alter *indent* dec))
-        result))
+(defn end [z m] (println m) (println "Last known good:") (mark z) (System/exit -1))
 
 (defn vector-evolution [r z g i]
-    (loop [remaining    (rest r)
-           z            (evolve (first r) z g i)]
-        (if (failed? z)
-            (fail (z/up z))
-            (if (seq remaining)
-                (recur  (rest remaining)
-                        (evolve (first remaining) (z/rightmost z) g i))
-                (z/up z)))))
-
-(defn zero-or-more-evolution [r z g i]
-    (println "Trying:" (pr-str r) (pr-str (curr i)))
-    (loop [result (evolve r z g i)]
-        (if (failed? result)
-            (do (println "Failed:" (pr-str r) (pr-str (curr i))) (cleanup result))
-            (do (println "Success:" (pr-str r) (pr-str (curr i)) (mark result)) (recur (evolve r result g i))))))
-
-(defn either-evolution [list-body z g i]
-    (let [rollback (loca i)]
-        (loop [remaining list-body]
-            (let [attempt (evolve (first remaining) z g i)]
-                (if (failed? attempt)
-                    (if (seq (rest remaining))
-                        (do (roll i rollback) (recur (rest remaining)))
-                        (fail z))
-                    (z/up attempt))))))
-
-(defn one-or-more-evolution [body z g i]
-    (let [first-result (evolve body z g i)]
-        (if (failed? first-result)
-            (fail z)
-            (z/up (zero-or-more-evolution body first-result g i)))))
-
-(defn until-evolution [body z g i]
-    (if (failed? (evolve body z g i))
-        (let [result (-> z (z/insert-right (curr i)) z/right)]
-            (dosync (ref-set *cycle-map* {}))
-            (move i)
-            result)
-        (do (println (gen-indent) "Failing on until of" (pr-str body)) (back i) (fail z))))
-
-(defn list-evolution [r z g i]
-    (let [list-type (first r)
-          list-body (rest r)
-          z         (-> z (z/insert-right [list-type]) z/right z/down)]
-        (cond
-            (= list-type '*) (zero-or-more-evolution (first list-body) z g i)
-            (= list-type '|) (either-evolution list-body z g i)
-            (= list-type '+) (one-or-more-evolution (first list-body) z g i)
-            (= list-type '%) (until-evolution (first list-body) z g i)   ; This  will eventually be more...
-            true (end z (str "Unknown list-type: " (pr-str list-type))))))
+    (println "Vector:" r)
+    ; A Vector evals each sub-part in order
+    ; Since Keyword places the Non-Terminal as the first item in the list and the z/downs into the list, we can z/insert-right
+    ; We do _not_ z/up at the end... the Keyword must do that, since it z/down'd
+    (println "Vector on:" z)
+    (loop [remaining r
+           z z]
+        (if (seq remaining)
+            (recur (rest remaining) (-> z (z/insert-right (evolve (first remaining) z g i)) z/right))
+            z)))
 
 (defn string-evolution [r z g i]
-    (println "String evo:" (pr-str r) (pr-str (curr i)))
-    (if (< 1 (count r))
-        (end z "Unable to handle multi-char terminals")
-        (if (not= r (curr i))
-            (do (println "Str-evo failed") (fail z))
-            (do (println "Str-evo success") (let [result (-> z (z/insert-right (curr i)) z/right)]
-                (dosync (ref-set *cycle-map* {}))
-                (move i)
-                (println (gen-indent) "Match:" r)
-                result)))))
+    z)
 
+; This function is meant to return one of two things... a valid ast or nil if there is no valid ast
 (defn evolve [r z g i]
-    (println "\t" (pr-str r))
+    ;(println "\t" (pr-str r))
     (cond
-        (keyword? r)    (keyword-evolution r z g i)
+;        (keyword? r)    (keyword-evolution r z g i)
         (vector? r)     (vector-evolution r z g i)
-        (list? r)       (list-evolution r z g i)
+;        (list? r)       (list-evolution r z g i)
         (string? r)     (string-evolution r z g i)
         true (end z (str "Unknown rule type:" (pr-str r)))))
 
-;(defn pegasus [grammar input-wrapped]
-;    (loop [asts (list (z/vector-zip []))]
-;        (if (has? input-wrapped)
-;            (recur  (doall (map #(evolve :Start % grammar input-wrapped) asts)) ; Flatten and de-nullify
-;                    )
-;            (expose (first (doall (map #(evolve :Something-goes-here % grammar input-wrapped) asts)))))))
 (defn pegasus [grammar input-wrapped]
     (evolve (:Start grammar) (z/down (z/vector-zip [:Start])) grammar input-wrapped))
 
-(let [result (pegasus grammar-grammar (wrap "{:S \"a\"}"))]
+;(wrap "{:S \"a\"}")
+(let [result (pegasus
+                { :Start ["a"] }
+                (wrap "a")
+                )]
     (println (pprint (z/root result))))
 
 
