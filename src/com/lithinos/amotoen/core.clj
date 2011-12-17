@@ -101,7 +101,7 @@
     (println (pprint (z/root result))))
 
 
-; user=> (require '[clojure.zip :as z])
+; user=> (require '[clojure.zip :as z]) ; Except not :as z
 ; user=> (def z (ref (-> (vector-zip [:Start]) down)))
 ; user=> (node @z)
 ; :Start
