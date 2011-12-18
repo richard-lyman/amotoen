@@ -37,68 +37,60 @@
     :AnyNotDoubleQuote  '(% "\"")
 })
 
-(def *indent* (ref 0))
-(defn gen-indent [] (apply str (take @*indent* (repeat "  "))))
-(defn mark [z]
-    (println
-        "NODE:"         (try (pr-str (z/node z)) (catch Exception e "NO NODE"))
-        "\n\tLEFT"      (try (pr-str (z/lefts z)) (catch Exception e "NO LEFT"))
-        "\n\tRIGHT"     (try (pr-str (z/rights z)) (catch Exception e "NO RIGHT"))
-        "\n\tPREV"      (try (pr-str (z/node (z/prev z))) (catch Exception e "NO PREV"))
-        "\n\tCHILDREN"  (try (pr-str (z/children z)) (catch Exception e "NO CHILDREN"))
-        "\n\tPATH"      (try (pr-str (z/path z)) (catch Exception e "NO PATH"))
-        "\n\tROOT"      (try (pr-str (z/root z)) (catch Exception e "NO ROOT")))
-    z)
+;(def *indent* (ref 0))
+;(defn gen-indent [] (apply str (take @*indent* (repeat "  "))))
+;(defn mark [z]
+;    (println
+;        "NODE:"         (try (pr-str (z/node z)) (catch Exception e "NO NODE"))
+;        "\n\tLEFT"      (try (pr-str (z/lefts z)) (catch Exception e "NO LEFT"))
+;        "\n\tRIGHT"     (try (pr-str (z/rights z)) (catch Exception e "NO RIGHT"))
+;        "\n\tPREV"      (try (pr-str (z/node (z/prev z))) (catch Exception e "NO PREV"))
+;        "\n\tCHILDREN"  (try (pr-str (z/children z)) (catch Exception e "NO CHILDREN"))
+;        "\n\tPATH"      (try (pr-str (z/path z)) (catch Exception e "NO PATH"))
+;        "\n\tROOT"      (try (pr-str (z/root z)) (catch Exception e "NO ROOT")))
+;    z)
 
-(defprotocol wrapped-input
-    (has? [t] "")
-    (move [t] "")
-    (curr [t] ""))
+;(defn vector-evolution [r z g i]
+;    z)
 
-(defn wrap [input]
-    (let [location (ref 0)]
-        (reify wrapped-input
-            (has? [t] (< (inc @location) (count input)))
-            (move [t] (dosync (alter location inc)))
-            (curr [t] (if (<= (count input) @location) "" (subs input @location (inc @location)))))))
+;(defn string-evolution [r z g i]
+;    z)
 
-(declare evolve)
-(defn end [z m] (println m) (println "Last known good:") (mark z) (System/exit -1))
+;(defn evolve [r z g i]
+;    (cond
+;;        (keyword? r)    (keyword-evolution r z g i)
+;        (vector? r)     (vector-evolution r z g i)
+;;        (list? r)       (list-evolution r z g i)
+;        (string? r)     (string-evolution r z g i)
+;        true (end z (str "Unknown rule type:" (pr-str r)))))
 
-(defn vector-evolution [r z g i]
-    (println "Vector:" r)
-    ; A Vector evals each sub-part in order
-    ; Since Keyword places the Non-Terminal as the first item in the list and the z/downs into the list, we can z/insert-right
-    ; We do _not_ z/up at the end... the Keyword must do that, since it z/down'd
-    (println "Vector on:" z)
-    (loop [remaining r
-           z z]
-        (if (seq remaining)
-            (recur (rest remaining) (-> z (z/insert-right (evolve (first remaining) z g i)) z/right))
-            z)))
+(defprotocol flyable
+    (step [t c] "")
+    (final [t] ""))
 
-(defn string-evolution [r z g i]
-    z)
+(defn wings
+    ([grammar]
+        (wings grammar (z/vector-zip [:Start])))
+    ([grammar z]
+        (reify flyable
+            (step [t c]
+                (println "Accepting:" c)
+                (wings grammar z))
+            (final [t] (z/root z)))))
 
-; This function is meant to return one of two things... a valid ast or nil if there is no valid ast
-(defn evolve [r z g i]
-    ;(println "\t" (pr-str r))
-    (cond
-;        (keyword? r)    (keyword-evolution r z g i)
-        (vector? r)     (vector-evolution r z g i)
-;        (list? r)       (list-evolution r z g i)
-        (string? r)     (string-evolution r z g i)
-        true (end z (str "Unknown rule type:" (pr-str r)))))
+(defn pegasus [grammar i]
+    (loop [l    0
+           asts [(wings grammar)]]
+        (if (= l (count i))
+            (first asts)
+            (recur  (inc l)
+                    (remove nil? (flatten (map #(step % (subs i l (inc l)))  asts)))))))
 
-(defn pegasus [grammar input-wrapped]
-    (evolve (:Start grammar) (z/down (z/vector-zip [:Start])) grammar input-wrapped))
-
-;(wrap "{:S \"a\"}")
 (let [result (pegasus
                 { :Start ["a"] }
-                (wrap "a")
+                "a"
                 )]
-    (println (pprint (z/root result))))
+    (println (pprint (final result))))
 
 
 ; user=> (require '[clojure.zip :as z]) ; Except not :as z
