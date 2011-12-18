@@ -75,7 +75,9 @@
         (reify flyable
             (step [t c]
                 (println "Accepting:" c)
-                (wings grammar z))
+                ; Modify the zipper 'z' passed in below to reflect the new AST
+                ; If there's more than one zipper, there needs to be more than one wings call
+                [(wings grammar z)])
             (final [t] (z/root z)))))
 
 (defn pegasus [grammar i]
