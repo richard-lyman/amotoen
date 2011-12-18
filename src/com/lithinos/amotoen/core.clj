@@ -37,6 +37,49 @@
     :AnyNotDoubleQuote  '(% "\"")
 })
 
+(defprotocol flyable
+    (step [t c] "")
+    (dest [t] ""))
+
+(defn wings
+    ([grammar]
+        (wings grammar (z/down (z/vector-zip [:Start]))))
+    ([grammar z]
+        (reify flyable
+            (step [t c]
+                (println "Trying:" c)
+                (let [newz  (let [n (z/node z)]
+                                (cond
+                                    (keyword? n) (do (println "Processing keyword:" n) [z])
+                                    true (do (println "Unknown node type:" n) [z])))]
+                    (map #(wings grammar %) newz)))
+                ;[(wings grammar z)]) ; Modify the zipper 'z' passed in below to reflect the new AST. If there's more than one zipper, there needs to be more than one wings call
+            (dest [t] (z/root z)))))
+
+(defn pegasus [grammar i]
+    (loop [l    0
+           asts [(wings grammar)]]
+        (if (= l (count i))
+            (first asts)
+            (recur  (inc l)
+                    (remove nil? (flatten (map #(step % (subs i l (inc l)))  asts)))))))
+
+(let [result (pegasus {:Start ["a"]} "a" )]
+    (println (pprint (dest result))))
+
+
+; user=> (require '[clojure.zip :as z]) ; Except not :as z
+; user=> (def z (ref (-> (vector-zip [:Start]) down)))
+; user=> (node @z)
+; :Start
+; user=> (dosync (ref-set z (-> @z (insert-right [:Bob]) right down)))
+; user=> (root @z)
+; [:Start [:Bob]]
+; user=> (dosync (ref-set z (-> @z (insert-right :qwe) right)))
+; user=> (root @z)
+; [:Start [:Bob :qwe]]
+
+
 ;(def *indent* (ref 0))
 ;(defn gen-indent [] (apply str (take @*indent* (repeat "  "))))
 ;(defn mark [z]
@@ -63,46 +106,4 @@
 ;;        (list? r)       (list-evolution r z g i)
 ;        (string? r)     (string-evolution r z g i)
 ;        true (end z (str "Unknown rule type:" (pr-str r)))))
-
-(defprotocol flyable
-    (step [t c] "")
-    (final [t] ""))
-
-(defn wings
-    ([grammar]
-        (wings grammar (z/vector-zip [:Start])))
-    ([grammar z]
-        (reify flyable
-            (step [t c]
-                (println "Accepting:" c)
-                ; Modify the zipper 'z' passed in below to reflect the new AST
-                ; If there's more than one zipper, there needs to be more than one wings call
-                [(wings grammar z)])
-            (final [t] (z/root z)))))
-
-(defn pegasus [grammar i]
-    (loop [l    0
-           asts [(wings grammar)]]
-        (if (= l (count i))
-            (first asts)
-            (recur  (inc l)
-                    (remove nil? (flatten (map #(step % (subs i l (inc l)))  asts)))))))
-
-(let [result (pegasus
-                { :Start ["a"] }
-                "a"
-                )]
-    (println (pprint (final result))))
-
-
-; user=> (require '[clojure.zip :as z]) ; Except not :as z
-; user=> (def z (ref (-> (vector-zip [:Start]) down)))
-; user=> (node @z)
-; :Start
-; user=> (dosync (ref-set z (-> @z (insert-right [:Bob]) right down)))
-; user=> (root @z)
-; [:Start [:Bob]]
-; user=> (dosync (ref-set z (-> @z (insert-right :qwe) right)))
-; user=> (root @z)
-; [:Start [:Bob :qwe]]
 
