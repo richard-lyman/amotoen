@@ -32,24 +32,11 @@
                         \0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \: \/ \* \+ \! \_ \? \-)
 })
 
-; Return the AST
+; Avoid 'checking' the same character more than once... in serial.
+; A single character could be checked more than once... in parallel.
+; The only parallel is 'Either'
+
 (defn pegasus [g i]
-    ; Set possible paths to [(path :Start)]
-    ; For each char c in i
-        ; Ask each path to try to consume c
-            ; When a path tries to consume a char
-                ; Walk the grammar, from wherever we stopped last
-                    ;
-                    ;   where we stopped last can be... inside a vector, inside a list
-                    ;
-                    ; When we hit a keyword, keep walking to the definition of the keywor
-                    ; When we hit a vector, walk the first item
-                    ; When we hit a terminal, check to see if it is the same as c
-                        ; If the terminal is the same as c, return the new path
-                        ; If the terminal is not the same as c, return nil
-            ; If a path can consume c, it returns a new path representing the ast after consuming c
-            ; If a path can not consume c, it returns nil
-    ; end
     )
 
 (println (pr-str grammar-grammar))
