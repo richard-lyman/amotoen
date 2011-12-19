@@ -36,8 +36,13 @@
 ; A single character could be checked more than once... in parallel.
 ; The only parallel is 'Either'
 
-(defn pegasus [g i]
-    )
+(def g)
+(def j)
+(def i)
+
+(defn process [non-terminal]
+
+(defn pegasus [g i] (binding [g g i i j 0] (process :Start)))
 
 (println (pr-str grammar-grammar))
 
