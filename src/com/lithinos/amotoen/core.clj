@@ -37,34 +37,16 @@
     :AnyNotDoubleQuote  '(% "\"")
 })
 
-(defprotocol flyable
-    (step [t c] "")
-    (dest [t] ""))
-
-(defn wings
-    ([grammar]
-        (wings grammar (z/down (z/vector-zip [:Start]))))
-    ([grammar z]
-        (reify flyable
-            (step [t c]
-                (println "Trying:" c)
-                (let [newz  (let [n (z/node z)]
-                                (cond
-                                    (keyword? n) (do (println "Processing keyword:" n) [(step (wings grammar modified-z) c)])
-                                    true (do (println "Unknown node type:" n) [z])))]
-                    (map #(wings grammar %) newz)))
-            (dest [t] (z/root z)))))
-
-(defn pegasus [grammar i]
-    (loop [l    0
-           asts [(wings grammar)]]
-        (if (= l (count i))
-            (first asts)
-            (recur  (inc l)
-                    (remove nil? (flatten (map #(step % (subs i l (inc l)))  asts)))))))
-
-(let [result (pegasus {:Start ["a"]} "a" )]
-    (println (pprint (dest result))))
+;(defn pegasus [grammar i]
+;    (loop [l    0
+;           asts []]
+;        (if (= l (count i))
+;                (first asts)
+;            (recur  (inc l)
+;                    (remove nil? (flatten (map #(step % (subs i l (inc l)))  asts)))))))
+;
+;(let [result (pegasus {:Start "a"} "a" )]
+;    (println (pprint result)))
 
 
 ; user=> (require '[clojure.zip :as z]) ; Except not :as z
