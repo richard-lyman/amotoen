@@ -6,85 +6,37 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.core
-    (:use (clojure pprint))
-    (:require   [clojure.zip :as z])
-    (:import    (java.util.regex Pattern)))
+(ns com.lithinos.amotoen.core)
 
 (def #^{:private true} grammar-grammar {
-    :Start              :Grammar
-    :Whitespace         '(| " " "\n" "\r" "\t")
-    :_*                 '(* :Whitespace)
-    :_                  [:Whitespace '(* :Whitespace)]
-; Non-Terminals
-    :Grammar            ["{" :Rule '(* :Rule) :_* "}"]
-    :Rule               [:_* :Keyword :_ :Body]
-    :Keyword            [":" :ValidKeywordChar '(* :ValidKeywordChar)]
-    :ValidKeywordChar   '(| "A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z"
-                            "a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k" "l" "m" "n" "o" "p" "q" "r" "s" "t" "u" "v" "w" "x" "y" "z"
-                            "0" "1" "2" "3" "4" "5" "6" "7" "8" "9" ":" "/" "*" "+" "!" "_" "?" "-")
-    :Body               '(| :Keyword :Grouping :DoubleQuotedString)
-    :Grouping           '(| :Sequence :Either :ZeroOrMore :ZeroOrOne :MustNotFind :AnyNot)
-    :Sequence           ["["        :_* [:Body '(* [:_* :Body])]    :_* "]"]
-    :Either             [["(" "|"]  :_  [:Body '(* [:_* :Body])]    :_* ")"]
-    :ZeroOrMore         [["(" "*"]  :_  :Body                       :_* ")"]
-    :ZeroOrOne          [["(" "?"]  :_  :Body                       :_* ")"]
-    :AnyNot             [["(" "%"]  :_  '(| :Keyword :QuotedChar)   :_* ")"]
-; Terminal
-    :QuotedChar         ["\"" '(| :EscapedSlash :EscapedDoubleQuote :AnyNotDoubleQuote) "\""]
-    :EscapedSlash       ["\\" "\\"]
-    :EscapedDoubleQuote ["\\" "\""]
-    :AnyNotDoubleQuote  '(% "\"")
+    :Start          :Grammar
+    :Whitespace     '(| \space \newline \tab)
+    :_*             '(* :Whitespace)
+    :_              [:Whitespace '(* :Whitespace)]
+    :Grammar        [\{ :Rule '(* :Rule) :_* \}]
+    :Rule           [:_* :Keyword :_ :Body]
+    :Keyword        [\: :ValidKeywordChar '(* :ValidKeywordChar)]
+    :Body           '(| :Keyword :Grouping :DoubleQuotedString)
+    :Grouping       '(| :Sequence :Either :ZeroOrMore :ZeroOrOne :MustNotFind :AnyNot)
+    :Sequence       [\[         :_* [:Body '(* [:_* :Body])]            :_* \]]
+    :Either         [[\( \|]    :_  [:Body '(* [:_* :Body])]            :_* \)]
+    :ZeroOrMore     [[\( \*]    :_  :Body                               :_* \)]
+    :ZeroOrOne      [[\( \?]    :_  :Body                               :_* \)]
+    :AnyNot         [[\( \%]    :_  '(| :Keyword :SpecialChar :Char)    :_* \)]
+    :SpecialChar    [\\ '(| :Space :Newline :Tab) \space]
+    :Space          [\s \p \a \c \e]
+    :Newline        [\n \e \w \l \i \n \e]
+    :Tab            [\t \a \b]
+    :Char           [\\ '(% \space) \space]
+    :ValidKeywordChar '(| \A \B \C \D \E \F \G \H \I \J \K \L \M \N \O \P \Q \R \S \T \U \V \W \X \Y \Z
+                        \a \b \c \d \e \f \g \h \i \j \k \l \m \n \o \p \q \r \s \t \u \v \w \x \y \z
+                        \0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \: \/ \* \+ \! \_ \? \-)
 })
 
-;(defn pegasus [grammar i]
-;    (loop [l    0
-;           asts []]
-;        (if (= l (count i))
-;                (first asts)
-;            (recur  (inc l)
-;                    (remove nil? (flatten (map #(step % (subs i l (inc l)))  asts)))))))
-;
-;(let [result (pegasus {:Start "a"} "a" )]
-;    (println (pprint result)))
+; Return the AST
+(defn pegasus [g i]
+    )
 
+(println (pr-str grammar-grammar))
 
-; user=> (require '[clojure.zip :as z]) ; Except not :as z
-; user=> (def z (ref (-> (vector-zip [:Start]) down)))
-; user=> (node @z)
-; :Start
-; user=> (dosync (ref-set z (-> @z (insert-right [:Bob]) right down)))
-; user=> (root @z)
-; [:Start [:Bob]]
-; user=> (dosync (ref-set z (-> @z (insert-right :qwe) right)))
-; user=> (root @z)
-; [:Start [:Bob :qwe]]
-
-
-;(def *indent* (ref 0))
-;(defn gen-indent [] (apply str (take @*indent* (repeat "  "))))
-;(defn mark [z]
-;    (println
-;        "NODE:"         (try (pr-str (z/node z)) (catch Exception e "NO NODE"))
-;        "\n\tLEFT"      (try (pr-str (z/lefts z)) (catch Exception e "NO LEFT"))
-;        "\n\tRIGHT"     (try (pr-str (z/rights z)) (catch Exception e "NO RIGHT"))
-;        "\n\tPREV"      (try (pr-str (z/node (z/prev z))) (catch Exception e "NO PREV"))
-;        "\n\tCHILDREN"  (try (pr-str (z/children z)) (catch Exception e "NO CHILDREN"))
-;        "\n\tPATH"      (try (pr-str (z/path z)) (catch Exception e "NO PATH"))
-;        "\n\tROOT"      (try (pr-str (z/root z)) (catch Exception e "NO ROOT")))
-;    z)
-
-;(defn vector-evolution [r z g i]
-;    z)
-
-;(defn string-evolution [r z g i]
-;    z)
-
-;(defn evolve [r z g i]
-;    (cond
-;;        (keyword? r)    (keyword-evolution r z g i)
-;        (vector? r)     (vector-evolution r z g i)
-;;        (list? r)       (list-evolution r z g i)
-;        (string? r)     (string-evolution r z g i)
-;        true (end z (str "Unknown rule type:" (pr-str r)))))
-
+;(pegasus grammar-grammar (pr-str grammar-grammar))
