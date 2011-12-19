@@ -32,18 +32,21 @@
                         \0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \: \/ \* \+ \! \_ \? \-)
 })
 
-; Avoid 'checking' the same character more than once... in serial.
-; A single character could be checked more than once... in parallel.
-; The only parallel is 'Either'
+(def *indent* (ref -1))
+(defn inden [] (apply str (take @*indent* (repeat " "))))
 
-(def g)
-(def j)
-(def i)
+(defn pegasus
+    ([g i] (pegasus :Start g i 0))
+    ([n g i j]
+        ;(println (inden) "Processing" n)
+        (dosync (alter *indent* inc))
+        (let [result    (cond
+                            (keyword? n)(do (println (inden) n) {n (pegasus (n g) g i j)})
+                            (vector? n) (do (println (inden) n) (map #(pegasus % g i j) n))
+                            (list? n)   (do (println (inden) n) "list")
+                            (char? n)   (do (println (inden) n) "char")
+                            true        (do (println (inden) n "UNKNOWN") "?"))]
+            (dosync (alter *indent* dec))
+            result)))
 
-(defn process [non-terminal]
-
-(defn pegasus [g i] (binding [g g i i j 0] (process :Start)))
-
-(println (pr-str grammar-grammar))
-
-;(pegasus grammar-grammar (pr-str grammar-grammar))
+(println "\nDone\n" (pegasus grammar-grammar (pr-str grammar-grammar)))
