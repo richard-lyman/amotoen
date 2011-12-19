@@ -50,10 +50,9 @@
                 (println "Trying:" c)
                 (let [newz  (let [n (z/node z)]
                                 (cond
-                                    (keyword? n) (do (println "Processing keyword:" n) [z])
+                                    (keyword? n) (do (println "Processing keyword:" n) [(step (wings grammar modified-z) c)])
                                     true (do (println "Unknown node type:" n) [z])))]
                     (map #(wings grammar %) newz)))
-                ;[(wings grammar z)]) ; Modify the zipper 'z' passed in below to reflect the new AST. If there's more than one zipper, there needs to be more than one wings call
             (dest [t] (z/root z)))))
 
 (defn pegasus [grammar i]
