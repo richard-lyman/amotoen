@@ -35,16 +35,25 @@
 (def *indent* (ref -1))
 (defn inden [] (apply str (take @*indent* (repeat " "))))
 
+(defn type-list [n g i j]
+    (let [t (first n)]
+        (cond
+            (= t '|) (println "Either")
+            (= t '*) (println "Zero or more")
+            (= t '?) (println "Zero or One")
+            (= t '%) (println "AnyNot")))
+    "list")
+
 (defn pegasus
     ([g i] (pegasus :Start g i 0))
     ([n g i j]
-        ;(println (inden) "Processing" n)
+        (println (inden) "Processing" n)
         (dosync (alter *indent* inc))
         (let [result    (cond
                             (keyword? n)(do (println (inden) n) {n (pegasus (n g) g i j)})
-                            (vector? n) (do (println (inden) n) (map #(pegasus % g i j) n))
-                            (list? n)   (do (println (inden) n) "list")
-                            (char? n)   (do (println (inden) n) "char")
+                            (vector? n) (do (println (inden) n) (vec (map #(pegasus % g i j) n)))
+                            (list? n)   (do (println (inden) n) (type-list n g i j))
+                            (char? n)   (do (println (inden) n) (if (= n (first (subs i j (inc j)))) n (throw (Error. "Char mismatch"))))
                             true        (do (println (inden) n "UNKNOWN") "?"))]
             (dosync (alter *indent* dec))
             result)))
