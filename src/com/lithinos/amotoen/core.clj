@@ -40,6 +40,7 @@
 (defn type-list [n g i]
     (let [t (first n)
           result (cond
+                            ; Close but not. There needs to be something that 'checks' to see if the future should continue...
                     (= t '|) @(first (filter #(not (nil? %)) (map #(future (pegasus % g i)) (rest n))))
                     (= t '*) (doall (take-while #(not (nil? %)) (repeatedly (fn [] (try (pegasus (second n) g i) (catch Error e nil))))))
                     (= t '?) (println "Zero or One")
