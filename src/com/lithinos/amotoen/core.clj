@@ -9,7 +9,6 @@
 (ns com.lithinos.amotoen.core)
 
 (def #^{:private true} grammar-grammar {
-    :Start          :Grammar
     :Whitespace     '(| \space \newline \tab)
     :_*             '(* :Whitespace)
     :_              [:Whitespace '(* :Whitespace)]
@@ -32,36 +31,34 @@
                         \0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \: \/ \* \+ \! \_ \? \-)
 })
 
+(declare pegasus)
+(def j -1)
+
 (def *indent* (ref -1))
 (defn inden [] (apply str (take @*indent* (repeat " "))))
 
-(defn type-list [n g i j]
-    (let [t (first n)]
-        (cond
-            (= t '|) (println "Either")
-            (= t '*)    (loop [remaining (rest n)
-                               result '()]
-                            (try
-                                (recur  (rest remaining)
-                                        (reverse (cons result (pegasus (first remaining) g i j))))
-                                (catch Error e result)))
-            (= t '?) (println "Zero or One")
-            (= t '%) (println "AnyNot")))
-    "list")
+(defn type-list [n g i]
+    (let [t (first n)
+          result (cond
+                    (= t '|) @(first (filter #(not (nil? %)) (map #(future (pegasus % g i)) (rest n))))
+                    (= t '*) (doall (take-while #(not (nil? %)) (repeatedly (fn [] (try (pegasus (second n) g i) (catch Error e nil))))))
+                    (= t '?) (println "Zero or One")
+                    (= t '%) (println "AnyNot"))]
+        (println "List returning:" result)
+        result))
 
-(defn pegasus
-    ([g i] (pegasus :Start g i 0))
-    ([n g i j]
-        (println (inden) "Processing" n)
-        (dosync (alter *indent* inc))
-        (let [result    (cond
-                            (keyword? n)(do (println (inden) n) {n (pegasus (n g) g i j)})
-                            (vector? n) (do (println (inden) n) (vec (map #(pegasus % g i j) n)))
-                            (list? n)   (do (println (inden) n) (type-list n g i j))
-                                                                                         ; j needs to change here...
-                            (char? n)   (do (println (inden) n) (if (= n (first (subs i j (inc j)))) n (throw (Error. "Char mismatch"))))
-                            true        (do (println (inden) n "UNKNOWN") "?"))]
-            (dosync (alter *indent* dec))
-            result)))
+(defn pegasus [n g i]
+    (println (inden) (pr-str n))
+    (dosync (alter *indent* inc))
+    (let [result    (cond
+                        (keyword? n){n (pegasus (n g) g i)}
+                        (vector? n) (vec (map #(pegasus % g i) n))
+                        (list? n)   (type-list n g i)
+                        (char? n)   (if (= n (first (subs i j (inc j))))
+                                        (do (println "MATCH") (set! j (inc j)) n)
+                                        (throw (Error. "Char mismatch")))
+                        true        (throw (Error. (str "Unknown type: " n))))]
+        (dosync (alter *indent* dec))
+        result))
 
-(println "\nDone\n" (pegasus grammar-grammar (pr-str grammar-grammar)))
+(println "\nDone\n" (binding [j 0] (pegasus :Grammar grammar-grammar (pr-str grammar-grammar))))
