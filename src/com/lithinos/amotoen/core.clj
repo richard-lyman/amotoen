@@ -39,7 +39,12 @@
     (let [t (first n)]
         (cond
             (= t '|) (println "Either")
-            (= t '*) (println "Zero or more")
+            (= t '*)    (loop [remaining (rest n)
+                               result '()]
+                            (try
+                                (recur  (rest remaining)
+                                        (reverse (cons result (pegasus (first remaining) g i j))))
+                                (catch Error e result)))
             (= t '?) (println "Zero or One")
             (= t '%) (println "AnyNot")))
     "list")
@@ -53,6 +58,7 @@
                             (keyword? n)(do (println (inden) n) {n (pegasus (n g) g i j)})
                             (vector? n) (do (println (inden) n) (vec (map #(pegasus % g i j) n)))
                             (list? n)   (do (println (inden) n) (type-list n g i j))
+                                                                                         ; j needs to change here...
                             (char? n)   (do (println (inden) n) (if (= n (first (subs i j (inc j)))) n (throw (Error. "Char mismatch"))))
                             true        (do (println (inden) n "UNKNOWN") "?"))]
             (dosync (alter *indent* dec))
