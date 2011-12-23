@@ -35,21 +35,22 @@
 (def j -1)
 
 (def *indent* (ref -1))
-(defn inden [] (apply str (take @*indent* (repeat " "))))
+(defn in [] (apply str (take @*indent* (repeat " "))))
 
 (defn type-list [n g i]
     (let [t (first n)
           result (cond
                             ; Close but not. There needs to be something that 'checks' to see if the future should continue...
-                    (= t '|) @(first (filter #(not (nil? %)) (map #(future (pegasus % g i)) (rest n))))
+                            ; .. and a new binding... that returns j...
+                    (= t '|) @(first (filter #(not (nil? %)) (doall (map #(binding [j j] (println "Future:" (pr-str %)) (future (pegasus % g i))) (rest n)))))
                     (= t '*) (doall (take-while #(not (nil? %)) (repeatedly (fn [] (try (pegasus (second n) g i) (catch Error e nil))))))
-                    (= t '?) (println "Zero or One")
+                    (= t '?) (try (pegasus (second n) g i) (catch Error e nil))
                     (= t '%) (println "AnyNot"))]
         (println "List returning:" result)
         result))
 
 (defn pegasus [n g i]
-    (println (inden) (pr-str n))
+    (println (in) (pr-str n))
     (dosync (alter *indent* inc))
     (let [result    (cond
                         (keyword? n){n (pegasus (n g) g i)}
@@ -62,4 +63,4 @@
         (dosync (alter *indent* dec))
         result))
 
-(println "\nDone\n" (binding [j 0] (pegasus :Grammar grammar-grammar (pr-str grammar-grammar))))
+(println "\nDone\n" (binding [j 0] (pegasus :Grammar grammar-grammar (pr-str {:S \a}))))
