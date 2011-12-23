@@ -22,10 +22,12 @@
     :ZeroOrMore     [[\( \*]    :_  :Body                       :_* \)]
     :ZeroOrOne      [[\( \?]    :_  :Body                       :_* \)]
     :AnyNot         [[\( \%]    :_  '(| :Keyword :Char)         :_* \)]
-    :Char           [\\ '(| :Tab :Space :Newline (% \space)) \space]
-    :Tab            [\t \a \b]
-    :Space          [\s \p \a \c \e]
-    :Newline        [\n \e \w \l \i \n \e]
+    :Char           [\\ '(| 
+                            ;:TabChar :SpaceChar :NewlineChar 
+                            (% \space)) \space]
+    ;:TabChar        [\t \a \b]
+    ;:SpaceChar      [\s \p \a \c \e]
+    ;:NewlineChar    [\n \e \w \l \i \n \e]
     :ValidKeywordChar '(| \A \B \C \D \E \F \G \H \I \J \K \L \M \N \O \P \Q \R \S \T \U \V \W \X \Y \Z
                         \a \b \c \d \e \f \g \h \i \j \k \l \m \n \o \p \q \r \s \t \u \v \w \x \y \z
                         \0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \: \/ \* \+ \! \_ \? \-)
@@ -51,15 +53,16 @@
 
 (defn pegasus [n g i]
     (println (in) (pr-str n))
-    (dosync (alter *indent* inc))
+    (dosync (alter *indent* inc)) ; This lines holds up the futures...
+    (println "Next")
     (let [result    (cond
-                        (keyword? n){n (pegasus (n g) g i)}
-                        (vector? n) (vec (map #(pegasus % g i) n))
-                        (list? n)   (type-list n g i)
-                        (char? n)   (if (= n (first (subs i j (inc j))))
+                        (keyword? n) (do (println "k") {n (pegasus (n g) g i)})
+                        (vector? n) (do (println "v") (vec (map #(pegasus % g i) n)))
+                        (list? n)   (do (println "l") (type-list n g i))
+                        (char? n)   (do (println "c") (if (= n (first (subs i j (inc j))))
                                         (do (println "MATCH") (set! j (inc j)) n)
-                                        (throw (Error. "Char mismatch")))
-                        true        (throw (Error. (str "Unknown type: " n))))]
+                                        (throw (Error. "Char mismatch"))))
+                        true        (do (println "e") (throw (Error. (str "Unknown type: " n)))))]
         (dosync (alter *indent* dec))
         result))
 
