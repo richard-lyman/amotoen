@@ -48,6 +48,9 @@
                                     #(not (nil? %))
                                     (doall
                                         (pmap ; Is there a way to stop the pmap if one of the options is valid?
+                                            ;
+                                            ;   THIS NEEDS TO 'MOVE' J IF IT WAS SUCCESSFUL...
+                                            ;
                                             #(binding [j tempj]
                                                 ;(println "With:" j)
                                                 (try (pegasus % g i) (catch Error e nil)))
