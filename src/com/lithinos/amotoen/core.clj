@@ -45,7 +45,7 @@
           result (cond
                     (= t '|) (first
                                 (filter
-                                    #(not (nil? %))
+                                    #(not (nil? (second %)))
                                     (doall
                                         (pmap ; Is there a way to stop the pmap if one of the options is valid?
                                             ;
@@ -53,7 +53,7 @@
                                             ;
                                             #(binding [j tempj]
                                                 ;(println "With:" j)
-                                                (try (pegasus % g i) (catch Error e nil)))
+                                                (try [j (pegasus % g i)] (catch Error e [j nil])))
                                             (rest n)))))
                     (= t '*) (doall
                                 (take-while
@@ -64,7 +64,11 @@
                     (= t '?) (try (pegasus (second n) g i) (catch Error e nil))
                     (= t '%) (println "AnyNot"))]
         ;(println "List" t "returning:" result)
-        result))
+        (if (vector? result)
+            (do
+                (set! j (first result))
+                (second result))
+            result)))
 
 (defn p [s n] (println (in) s (pr-str n)))
 
