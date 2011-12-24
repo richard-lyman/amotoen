@@ -38,23 +38,35 @@
 
 (defn in [] "")
 
+(defn either-body [n g i tempj]
+    (first
+        (filter
+            #(not (nil? (second %)))
+            (doall
+                (pmap ; Is there a way to stop the pmap if one of the options is valid?
+                    ;
+                    ;   THIS NEEDS TO 'MOVE' J IF IT WAS SUCCESSFUL...
+                    ;
+                    #(binding [j tempj]
+                        ;(println "With:" j)
+                        (try [(pegasus % g i) j] (catch Error e [nil j])))
+                    (rest n))))))
+
+(defn either [n g i tempj]
+    (let [result (either-body n g i tempj)]
+        (if (or (nil? result) (nil? (first result)))
+            nil
+            (do
+                (println "J:" (second result))
+                (set! j (second  result))
+                (first result)))))
+
 (defn type-list [n g i]
     ;(println "Processing at:" j)
     (let [tempj j
           t (first n)
           result (cond
-                    (= t '|) (first
-                                (filter
-                                    #(not (nil? (second %)))
-                                    (doall
-                                        (pmap ; Is there a way to stop the pmap if one of the options is valid?
-                                            ;
-                                            ;   THIS NEEDS TO 'MOVE' J IF IT WAS SUCCESSFUL...
-                                            ;
-                                            #(binding [j tempj]
-                                                ;(println "With:" j)
-                                                (try [j (pegasus % g i)] (catch Error e [j nil])))
-                                            (rest n)))))
+                    (= t '|) (either n g i tempj)
                     (= t '*) (doall
                                 (take-while
                                     #(do
@@ -64,13 +76,9 @@
                     (= t '?) (try (pegasus (second n) g i) (catch Error e nil))
                     (= t '%) (println "AnyNot"))]
         ;(println "List" t "returning:" result)
-        (if (vector? result)
-            (do
-                (set! j (first result))
-                (second result))
-            result)))
+        result))
 
-(defn p [s n] (println (in) s (pr-str n)))
+(defn p [s n] (println (in) s (pr-str n)) (flush))
 
 (defn try-char [n i]
     ;(println "Using:" j)
@@ -83,7 +91,8 @@
     (cond
         (keyword? n) (do (p "k" n) {n (pegasus (n g) g i)})
         (vector? n) (do (p "v" n) (vec (map #(pegasus % g i) n)))
-        (list? n)   (do (p "l" n) (type-list n g i))
+        (list? n)   (do ;(p "l" n)
+                        (type-list n g i))
         (char? n)   (do
                         ;(p "c" n)
                         (try-char n i))
