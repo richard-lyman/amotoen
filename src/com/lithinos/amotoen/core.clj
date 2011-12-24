@@ -36,34 +36,50 @@
 (declare pegasus)
 (def j -1)
 
-(def *indent* (ref -1))
-(defn in [] (apply str (take @*indent* (repeat " "))))
+(defn in [] "")
 
 (defn type-list [n g i]
-    (let [t (first n)
+    ;(println "Processing at:" j)
+    (let [tempj j
+          t (first n)
           result (cond
-                            ; Close but not. There needs to be something that 'checks' to see if the future should continue...
-                            ; .. and a new binding... that returns j...
-                    (= t '|) @(first (filter #(not (nil? %)) (doall (map #(binding [j j] (println "Future:" (pr-str %)) (future (pegasus % g i))) (rest n)))))
-                    (= t '*) (doall (take-while #(not (nil? %)) (repeatedly (fn [] (try (pegasus (second n) g i) (catch Error e nil))))))
+                    (= t '|) (first
+                                (filter
+                                    #(not (nil? %))
+                                    (doall
+                                        (pmap ; Is there a way to stop the pmap if one of the options is valid?
+                                            #(binding [j tempj]
+                                                ;(println "With:" j)
+                                                (try (pegasus % g i) (catch Error e nil)))
+                                            (rest n)))))
+                    (= t '*) (doall
+                                (take-while
+                                    #(do
+                                        ;(println "Testing zero-or-more:" ((second n) %)) 
+                                        (not (nil? ((second n) %))))
+                                    (repeatedly (fn [] (try (pegasus (second n) g i) (catch Error e nil))))))
                     (= t '?) (try (pegasus (second n) g i) (catch Error e nil))
                     (= t '%) (println "AnyNot"))]
-        (println "List returning:" result)
+        ;(println "List" t "returning:" result)
         result))
 
+(defn p [s n] (println (in) s (pr-str n)))
+
+(defn try-char [n i]
+    ;(println "Using:" j)
+    ;(println (str "Trying to match char: '" (pr-str n) "' to: '" (pr-str (first (subs i j (inc j)))) "' out of: '" (pr-str (subs i j)) "'"))
+    (if (= n (first (subs i j (inc j))))
+        (do (p "MATCH" n)  (set! j (inc j)) n)
+        (throw (Error. "Char mismatch"))))
+
 (defn pegasus [n g i]
-    (println (in) (pr-str n))
-    (dosync (alter *indent* inc)) ; This lines holds up the futures...
-    (println "Next")
-    (let [result    (cond
-                        (keyword? n) (do (println "k") {n (pegasus (n g) g i)})
-                        (vector? n) (do (println "v") (vec (map #(pegasus % g i) n)))
-                        (list? n)   (do (println "l") (type-list n g i))
-                        (char? n)   (do (println "c") (if (= n (first (subs i j (inc j))))
-                                        (do (println "MATCH") (set! j (inc j)) n)
-                                        (throw (Error. "Char mismatch"))))
-                        true        (do (println "e") (throw (Error. (str "Unknown type: " n)))))]
-        (dosync (alter *indent* dec))
-        result))
+    (cond
+        (keyword? n) (do (p "k" n) {n (pegasus (n g) g i)})
+        (vector? n) (do (p "v" n) (vec (map #(pegasus % g i) n)))
+        (list? n)   (do (p "l" n) (type-list n g i))
+        (char? n)   (do
+                        ;(p "c" n)
+                        (try-char n i))
+        true        (do (p "e" n) (throw (Error. (str "Unknown type: " n))))))
 
 (println "\nDone\n" (binding [j 0] (pegasus :Grammar grammar-grammar (pr-str {:S \a}))))
