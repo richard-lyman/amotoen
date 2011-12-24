@@ -55,7 +55,9 @@
 (defn either [n g i tempj]
     (let [result (either-body n g i tempj)]
         (if (or (nil? result) (nil? (first result)))
-            nil
+            (do
+                (println "NIL:" result)
+                nil)
             (do
                 (println "J:" (second result))
                 (set! j (second  result))
