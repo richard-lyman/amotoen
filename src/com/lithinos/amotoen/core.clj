@@ -35,38 +35,20 @@
 (declare pegasus)
 (def j -1)
 
-(defprotocol IPosition
-    (clone [t] "")
-    (gp [t] "")
-    (sp [t j] ""))
+(defprotocol IPosition (clone [t] "") (gpos [t] "") (spos [t j] ""))
+(defn gen-pos-str
+    ([s] (gen-pos-str s 0))
+    ([s j]
+        (let [j (ref j)]
+            (reify IPosition
+                (clone [t] (gen-pos-str s (gpos t)))
+                (gpos [t] @j)
+                (spos [t k] (dosync (ref-set j k)))))))
 
-(defrecord PositionString [s j]
-    IPosition
-    (gp [t] (println "Get:" (:j t)))
-    (sp [t j] (assoc t :j j)))
-
-(let [ps (PositionString. "" 10)]
-    (gp ps)
-    (gp (sp ps 20))
-    (gp ps))
-
-(defn gen-pos-str [s]
-    (let [j (ref 0)]
-        (reify IPosition
-            (clone [t] (let [result (gen-pos-str s)] (sp result (gp t)) result))
-            (gp [t] @j)
-            (sp [t k] (dosync (ref-set j k))))))
-
-(let [ps (gen-pos-str "")
-      c (clone ps)]
-    (println "Get:" (gp ps))
-    (sp ps 1)
-    (println "Get:" (gp ps))
-    (println "Get:" (gp c))
-    (sp c 2)
-    (println "Get:" (gp c))
-    (println "Get:" (gp ps)))
-
+;(def ps (gen-pos-str "asd"))
+;(println "Get:" (gpos ps))
+;(println "Set:" (spos ps 10))
+;(println "Get:" (gpos ps))
 
 (defn in [] "")
 
