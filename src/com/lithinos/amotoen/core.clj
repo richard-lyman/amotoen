@@ -6,7 +6,8 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.core)
+(ns com.lithinos.amotoen.core
+    (import (java.util UUID)))
 
 (def #^{:private true} grammar-grammar {
     :Whitespace     '(| \space \newline \tab)
@@ -43,7 +44,8 @@
         (filter
             #(not (nil? (second %)))
             (doall
-                (pmap ; Is there a way to stop the pmap if one of the options is valid?
+                ;(pmap ; Is there a way to stop the pmap if one of the options is valid?
+                (map
                     ;
                     ;   THIS NEEDS TO 'MOVE' J IF IT WAS SUCCESSFUL...
                     ;
@@ -69,12 +71,14 @@
           t (first n)
           result (cond
                     (= t '|) (either n g i tempj)
-                    (= t '*) (doall
+                    (= t '*) (let [u (UUID/randomUUID)]
+                                (println "zero-or-more:" u)
+                                (doall
                                 (take-while
                                     #(do
-                                        ;(println "Testing zero-or-more:" ((second n) %)) 
+                                        (println "Testing zero-or-more:" % "," n "," ((second n) %) "," (not (nil? ((second n) %))))
                                         (not (nil? ((second n) %))))
-                                    (repeatedly (fn [] (try (pegasus (second n) g i) (catch Error e nil))))))
+                                    (repeatedly (fn [] (println "Zero-or-more again:" u) (try (pegasus (second n) g i) (catch Error e nil)))))))
                     (= t '?) (try (pegasus (second n) g i) (catch Error e nil))
                     (= t '%) (println "AnyNot"))]
         ;(println "List" t "returning:" result)
@@ -90,6 +94,7 @@
         (throw (Error. "Char mismatch"))))
 
 (defn pegasus [n g i]
+    (println n)
     (cond
         (keyword? n) (do (p "k" n) {n (pegasus (n g) g i)})
         (vector? n) (do (p "v" n) (vec (map #(pegasus % g i) n)))
