@@ -33,58 +33,52 @@
 })
 
 (declare pegasus)
-(def j -1)
 
-(defprotocol IPosition (clone [t] "") (gpos [t] "") (spos [t j] ""))
-(defn gen-pos-str
-    ([s] (gen-pos-str s 0))
+(defprotocol IPosition (clone [t] "") (m [t] "Returns the 'c' then (inc pos)") (c [t] "The character at pos"))
+(defn gen-ps
+    ([s] (gen-ps s 0))
     ([s j]
         (let [j (ref j)]
             (reify IPosition
-                (clone [t] (gen-pos-str s (gpos t)))
-                (gpos [t] @j)
-                (spos [t k] (dosync (ref-set j k)))))))
+                (clone [t] (gen-ps s @j))
+                (m [t] (let [r (c t)] (dosync (alter j inc)) r))
+                (c [t] (.charAt s @j))))))
 
-;(def ps (gen-pos-str "asd"))
-;(println "Get:" (gpos ps))
-;(println "Set:" (spos ps 10))
-;(println "Get:" (gpos ps))
-
-(defn in [] "")
-
-(defn either [n g i]
+(defn either [n g w]
     (first
         (filter
             #(not (nil? (second %)))
             (doall
                 (map
-                    #(try (pegasus % g i) (catch Error e nil))
+                    #(try (pegasus % g w) (catch Error e nil))
                     (rest n))))))
 
-(defn type-list [n g i]
+(defn type-list [n g w]
     (let [t (first n)
           result (cond
-                    (= t '|) (either n g i)
+                    (= t '|) (either n g w)
                     (= t '*) (doall
                                 (take-while
-                                    #(not (nil? ((second n) %)))
-                                    (repeatedly (try (pegasus (second n) g i) (catch Error e nil)))))
-                    (= t '?) (try (pegasus (second n) g i) (catch Error e nil))
+                                    #(do
+                                        (println "Check:" n)
+                                        (not (nil? ((second n) %)))) ; Not everything passed to a zero-or-more is a keyword
+                                    (repeatedly #(try (pegasus (second n) g w) (catch Error e nil)))))
+                    (= t '?) (try (pegasus (second n) g w) (catch Error e nil))
                     (= t '%) (println "AnyNot"))]
         result))
 
-(defn try-char [n i]
-    (if (= n (first (subs i j (inc j))))
-        (do (set! j (inc j)) n)
+(defn try-char [n w]
+    (if (= n (c w))
+        (m w)
         (throw (Error. "Char mismatch"))))
 
-(defn pegasus [n g i]
-    (println n)
+(defn pegasus [n g w]
     (cond
-        (keyword? n) {n (pegasus (n g) g i)}
-        (vector? n) (vec (map #(pegasus % g i) n))
-        (list? n)   (type-list n g i)
-        (char? n)   (try-char n i)
+        (keyword? n)(do (println "k:" n) (flush) {n (pegasus (n g) g w)})
+        (vector? n) (do (println "v:" n) (flush) (map #(pegasus % g w) n));vec
+        (list? n)   (do (println "l:" n) (flush) (type-list n g w))
+        (char? n)   (do (println "c:" n) (flush) (try-char n w))
         true        (throw (Error. (str "Unknown type: " n)))))
 
-;(println "\nDone\n" (binding [j 0] (pegasus :Grammar grammar-grammar (pr-str {:S \a}))))
+(println "\nDone\n")
+(println (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a}))))
