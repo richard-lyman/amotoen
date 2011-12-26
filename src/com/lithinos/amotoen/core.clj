@@ -74,15 +74,19 @@
 (defn try-char [n w]
     (if (= n (c w))
         (m w)
-        (throw (Error. "Char mismatch"))))
+        (throw (Error. (str "Char mismatch: '" n "' with '" (c w) "'")))))
 
 (defn pegasus [n g w]
     (cond
-        (keyword? n)(do (println "k:" n) (flush) {n (pegasus (n g) g w)})
-        (vector? n) (do (println "v:" n) (flush) (map #(pegasus % g w) n));vec
+        (keyword? n)(do (println "k:" n) (flush) (try {n (pegasus (n g) g w)} (catch Error e nil)))
+        (vector? n) (do (println "v:" n) (flush) (try (map #(pegasus % g w) n) (catch Error e nil)));vec
         (list? n)   (do (println "l:" n) (flush) (type-list n g w))
         (char? n)   (do #_(println "c:" n) (flush) (try-char n w))
         true        (throw (Error. (str "Unknown type: " n)))))
 
 (println "\nDone\n")
-(println (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a}))))
+(let [result
+    (try
+        (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a})))
+        (catch Error e "Humm..."))]
+    (println result))
