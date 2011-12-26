@@ -47,7 +47,9 @@
 (defn either [n g w]
     (first
         (filter
-            #(not (nil? (second %)))
+            #(do
+                (println "Filter either" (pr-str %))
+                true)
             (doall
                 (map
                     #(try (pegasus % g w) (catch Error e nil))
@@ -59,9 +61,11 @@
                     (= t '|) (either n g w)
                     (= t '*) (doall
                                 (take-while
-                                    #(do
-                                        (println "Check:" n)
-                                        (not (nil? ((second n) %)))) ; Not everything passed to a zero-or-more is a keyword
+                                    #(if (map? %)
+                                        ((second n) %)
+                                        (do
+                                            (println "Filter *:" %)
+                                            false))
                                     (repeatedly #(try (pegasus (second n) g w) (catch Error e nil)))))
                     (= t '?) (try (pegasus (second n) g w) (catch Error e nil))
                     (= t '%) (println "AnyNot"))]
@@ -77,7 +81,7 @@
         (keyword? n)(do (println "k:" n) (flush) {n (pegasus (n g) g w)})
         (vector? n) (do (println "v:" n) (flush) (map #(pegasus % g w) n));vec
         (list? n)   (do (println "l:" n) (flush) (type-list n g w))
-        (char? n)   (do (println "c:" n) (flush) (try-char n w))
+        (char? n)   (do #_(println "c:" n) (flush) (try-char n w))
         true        (throw (Error. (str "Unknown type: " n)))))
 
 (println "\nDone\n")
