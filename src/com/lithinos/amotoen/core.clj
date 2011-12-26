@@ -9,6 +9,9 @@
 (ns com.lithinos.amotoen.core
     (import (java.util UUID)))
 
+(defn lpegs [t s] (reverse (into '() (cons t (seq s)))))
+(defn pegs [s] (vec (seq s)))
+
 (def #^{:private true} grammar-grammar {
     :Whitespace     '(| \space \newline \tab)
     :_*             '(* :Whitespace)
@@ -24,12 +27,10 @@
     :ZeroOrOne      [[\( \?]    :_  :Body                       :_* \)]
     :AnyNot         [[\( \%]    :_  '(| :Keyword :Char)         :_* \)]
     :Char           [\\ '(| :TabChar :SpaceChar :NewlineChar (% \space)) '(* \space)]
-    :TabChar        [\t \a \b]
-    :SpaceChar      [\s \p \a \c \e]
-    :NewlineChar    (vec (seq "newline"));[\n \e \w \l \i \n \e]
-    :ValidKeywordChar '(| \A \B \C \D \E \F \G \H \I \J \K \L \M \N \O \P \Q \R \S \T \U \V \W \X \Y \Z
-                        \a \b \c \d \e \f \g \h \i \j \k \l \m \n \o \p \q \r \s \t \u \v \w \x \y \z
-                        \0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \: \/ \* \+ \! \_ \? \-)
+    :TabChar        (pegs "tab")
+    :SpaceChar      (pegs "space")
+    :NewlineChar    (pegs "newline")
+    :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
 })
 
 (declare pegasus)
@@ -79,8 +80,6 @@
             #_(println (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
             nil)))
 
-(defn p [s n] #_(println s (pr-str n)))
-
 (defn peg-vec [n g w]
     (loop [remaining    n
            result       []]
@@ -91,7 +90,8 @@
                     (recur  (rest remaining)
                             (conj result temp))
                     nil)))))
-    ;(vec (map #(pegasus % g w) n))
+
+(defn p [s n] #_(println s (pr-str n)) (flush))
 
 (defn pegasus [n g w]
     (cond
