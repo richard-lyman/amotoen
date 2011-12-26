@@ -16,17 +16,17 @@
     :Grammar        [\{ :_* :Rule '(* [:_ :Rule]) :_* \}]
     :Rule           [:Keyword :_ :Body]
     :Keyword        [\: :ValidKeywordChar '(* :ValidKeywordChar)]
-    :Body           '(| :Keyword :Grouping :DoubleQuotedString)
-    :Grouping       '(| :Sequence :Either :ZeroOrMore :ZeroOrOne :MustNotFind :AnyNot)
+    :Body           '(| :Keyword :Grouping :Char)
+    :Grouping       '(| :Sequence :Either :ZeroOrMore :ZeroOrOne :AnyNot)
     :Sequence       [\[         :_* [:Body '(* [:_* :Body])]    :_* \]]
     :Either         [[\( \|]    :_  [:Body '(* [:_* :Body])]    :_* \)]
     :ZeroOrMore     [[\( \*]    :_  :Body                       :_* \)]
     :ZeroOrOne      [[\( \?]    :_  :Body                       :_* \)]
     :AnyNot         [[\( \%]    :_  '(| :Keyword :Char)         :_* \)]
-    :Char           [\\ '(| :TabChar :SpaceChar :NewlineChar (% \space)) \space]
+    :Char           [\\ '(| :TabChar :SpaceChar :NewlineChar (% \space)) '(* \space)]
     :TabChar        [\t \a \b]
     :SpaceChar      [\s \p \a \c \e]
-    :NewlineChar    [\n \e \w \l \i \n \e]
+    :NewlineChar    (vec (seq "newline"));[\n \e \w \l \i \n \e]
     :ValidKeywordChar '(| \A \B \C \D \E \F \G \H \I \J \K \L \M \N \O \P \Q \R \S \T \U \V \W \X \Y \Z
                         \a \b \c \d \e \f \g \h \i \j \k \l \m \n \o \p \q \r \s \t \u \v \w \x \y \z
                         \0 \1 \2 \3 \4 \5 \6 \7 \8 \9 \: \/ \* \+ \! \_ \? \-)
@@ -44,49 +44,63 @@
                 (m [t] (let [r (c t)] (dosync (alter j inc)) r))
                 (c [t] (.charAt s @j))))))
 
-(defn either [n g w]
-    (first
-        (filter
-            #(do
-                (println "Filter either" (pr-str %))
-                true)
-            (doall
-                (map
-                    #(try (pegasus % g w) (catch Error e nil))
-                    (rest n))))))
+(defn either [n g w] (first (keep #(do #_(println "Either trying:" %) (pegasus % g w)) (rest n))))
 
 (defn type-list [n g w]
     (let [t (first n)
           result (cond
-                    (= t '|) (either n g w)
-                    (= t '*) (doall
-                                (take-while
-                                    #(if (map? %)
-                                        ((second n) %)
-                                        (do
-                                            (println "Filter *:" %)
-                                            false))
-                                    (repeatedly #(try (pegasus (second n) g w) (catch Error e nil)))))
-                    (= t '?) (try (pegasus (second n) g w) (catch Error e nil))
-                    (= t '%) (println "AnyNot"))]
+                    (= t '|) (let [temp (either n g w)] #_(println "Either returning:" temp) temp)
+                    (= t '*) (list
+                                (doall
+                                    (take-while
+                                        #(if (map? %)
+                                            (do
+                                                #_(println "Filter * first:" ((second n) %) %)
+                                                ((second n) %))
+                                            (do
+                                                #_(println "Filter * second:" %)
+                                                false))
+                                        (repeatedly #(pegasus (second n) g w)))))
+                    (= t '?) (pegasus (second n) g w)
+                    (= t '%) (let [c    (c w)
+                                   temp (pegasus (second n) g w)]
+                                (if temp ; If we succeed, then we fail - that's the point of AnyNot
+                                    nil
+                                    (do (m w) c) ; If we fail, then we accept the current char
+                                    )))]
         result))
 
 (defn try-char [n w]
     (if (= n (c w))
-        (m w)
-        (throw (Error. (str "Char mismatch: '" n "' with '" (c w) "'")))))
+        (do
+            #_(println (str "MATCH: '" (pr-str n) "' with '" (c w) "'"))
+            (m w))
+        (do
+            #_(println (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
+            nil)))
+
+(defn p [s n] #_(println s (pr-str n)))
+
+(defn peg-vec [n g w]
+    (loop [remaining    n
+           result       []]
+        (if (empty? remaining)
+            result
+            (let [temp (pegasus (first remaining) g w)]
+                (if temp
+                    (recur  (rest remaining)
+                            (conj result temp))
+                    nil)))))
+    ;(vec (map #(pegasus % g w) n))
 
 (defn pegasus [n g w]
     (cond
-        (keyword? n)(do (println "k:" n) (flush) (try {n (pegasus (n g) g w)} (catch Error e nil)))
-        (vector? n) (do (println "v:" n) (flush) (try (map #(pegasus % g w) n) (catch Error e nil)));vec
-        (list? n)   (do (println "l:" n) (flush) (type-list n g w))
-        (char? n)   (do #_(println "c:" n) (flush) (try-char n w))
+        (keyword? n)(do (p "k:" n) (flush) (let [temp (pegasus (n g) g w)] (if temp {n temp} nil)))
+        (vector? n) (do (p "v:" n) (flush) (peg-vec n g w))
+        (list? n)   (do (p "l:" n) (flush) (type-list n g w))
+        (char? n)   (do #_(p "c:" n) (flush) (try-char n w))
         true        (throw (Error. (str "Unknown type: " n)))))
 
-(println "\nDone\n")
-(let [result
-    (try
-        (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a})))
-        (catch Error e "Humm..."))]
-    (println result))
+(println "Start: " (pr-str {:S \a})) (flush)
+(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a}))))) (flush)
+(println "Stop") (flush)
