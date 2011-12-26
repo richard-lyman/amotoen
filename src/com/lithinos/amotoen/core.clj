@@ -6,10 +6,11 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.core
-    (import (java.util UUID)))
+(ns com.lithinos.amotoen.core)
 
-;(defn lpegs [t s] (list (cons t (seq s)))) ; Somehow this doesn't work...
+(defn debug [& args] #_(apply println args))
+
+;(defn lpegs [t s] (list (cons t (seq s)))) ; Somehow this doesn't work... (list? (list ...)) returns false...
 (defn lpegs [t s] (reverse (into '() (cons t (seq s)))))
 (defn pegs [s] (vec (seq s)))
 
@@ -46,21 +47,21 @@
                 (m [t] (let [r (c t)] (dosync (alter j inc)) r))
                 (c [t] (.charAt s @j))))))
 
-(defn either [n g w] (first (keep #(do #_(println "Either trying:" %) (pegasus % g w)) (rest n))))
+(defn- either [n g w] (first (keep #(do (debug "Either trying:" %) (pegasus % g w)) (rest n))))
 
-(defn type-list [n g w]
+(defn- type-list [n g w]
     (let [t (first n)
           result (cond
-                    (= t '|) (let [temp (either n g w)] #_(println "Either returning:" temp) temp)
+                    (= t '|) (let [temp (either n g w)] (debug "Either returning:" temp) temp)
                     (= t '*) (list
                                 (doall
                                     (take-while
                                         #(if (map? %)
                                             (do
-                                                #_(println "Filter * first:" ((second n) %) %)
+                                                (debug "Filter * first:" ((second n) %) %)
                                                 ((second n) %))
                                             (do
-                                                #_(println "Filter * second:" %)
+                                                (debug "Filter * second:" %) ; This can't be what it should be... this would fail the :Grammar (* [:_ :Rule]) bit
                                                 false))
                                         (repeatedly #(pegasus (second n) g w)))))
                     (= t '?) (pegasus (second n) g w)
@@ -72,16 +73,16 @@
                                     )))]
         result))
 
-(defn try-char [n w]
+(defn- try-char [n w]
     (if (= n (c w))
         (do
-            #_(println (str "MATCH: '" (pr-str n) "' with '" (c w) "'"))
+            (debug (str "MATCH: '" (pr-str n) "' with '" (c w) "'"))
             (m w))
         (do
-            #_(println (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
+            (debug (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
             nil)))
 
-(defn peg-vec [n g w]
+(defn- peg-vec [n g w]
     (loop [remaining    n
            result       []]
         (if (empty? remaining)
@@ -92,7 +93,7 @@
                             (conj result temp))
                     nil)))))
 
-(defn p [s n] #_(println s (pr-str n)) (flush))
+(defn- p [s n] (debug s (pr-str n)) (flush))
 
 (defn pegasus [n g w]
     (cond
@@ -102,6 +103,12 @@
         (char? n)   (do #_(p "c:" n) (flush) (try-char n w))
         true        (throw (Error. (str "Unknown type: " n)))))
 
-(println "Start: " (pr-str {:S \a})) (flush)
-(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a}))))) (flush)
-(println "Stop") (flush)
+(defn self-check []
+    #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a}))))) (flush)
+    #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps "{:S \\a}")))) (flush)
+    ; Shouldn't be nil
+    (println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str grammar-grammar))))) (flush)
+    )
+
+(self-check)
+
