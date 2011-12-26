@@ -9,6 +9,7 @@
 (ns com.lithinos.amotoen.core
     (import (java.util UUID)))
 
+;(defn lpegs [t s] (list (cons t (seq s)))) ; Somehow this doesn't work...
 (defn lpegs [t s] (reverse (into '() (cons t (seq s)))))
 (defn pegs [s] (vec (seq s)))
 
