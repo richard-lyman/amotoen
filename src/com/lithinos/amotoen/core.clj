@@ -9,7 +9,11 @@
 (ns com.lithinos.amotoen.core)
 
 (declare pegasus)
-(defprotocol IPosition (psdebug [t] "") (clone [t] "") (m [t] "Returns the 'c' then (inc pos)") (c [t] "The character at pos"))
+(defprotocol IPosition
+    (psdebug [t] "")
+    (clone [t] "")
+    (m [t] "Returns the 'c' then (inc pos)")
+    (c [t] "The character at pos"))
 (defn gen-ps
     ([s] (gen-ps s 0))
     ([s j]
@@ -24,8 +28,7 @@
                 (clone [t] (gen-ps s @j))
                 (m [t] (let [r (c t)] (dosync (alter j inc)) r))
                 (c [t] (.charAt s @j))))))
-;(defn lpegs [t s] (list (cons t (seq s)))) ; Somehow this doesn't work... (list? (list ...)) returns false...
-(defn lpegs [t s] (reverse (into '() (cons t (seq s))))) ; ... but this doesn't need to be fast
+(defn lpegs [t s] (reverse (into '() (cons t (seq s))))) ; This doesn't need to be fast, but shouldn't this work: (list (cons t (seq s)))
 (defn pegs [s] (vec (seq s)))
 
 
@@ -53,34 +56,27 @@
     :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
 })
 
+; Each re-attempt needs to have the pos set back...
 (defn- either [n g w] (first (keep #(do (debug w "Either trying:" (pr-str %)) (pegasus % g w)) (rest n))))
 
 (defn- type-list [n g w]
     (let [t (first n)
+          b (second n)
           result (cond
                     (= t '|) (let [temp (either n g w)] (debug w "Either returning:" temp) temp)
                     (= t '*) (list
                                 (doall
                                     (take-while
-                                        #(if (map? %)
-                                            (do
-                                                (debugt w "Filter * first:" ((second n) %) %)
-                                                ((second n) %))
-                                            (do
-                                                (debugt w "Filter * second:" % "," n "," (second n)) ; This can't be what it should be... this would fail the :Grammar (* [:_ :Rule]) bit
-                                                ;(not (nil? %))
-                                                (if (nil? %)
-                                                    nil
-                                                    true)
-                                                ))
-                                        (repeatedly #(pegasus (second n) g w)))))
-                    (= t '?) (pegasus (second n) g w)
+                                        #(cond
+                                            (keyword? b)(b %)
+                                            (list? b)   (do (debug w "Zero-or-more on list:" %) %)
+                                            (char? b)   %)
+                                        (repeatedly #(pegasus b g w)))))
+                    (= t '?) (pegasus b g w)
                     (= t '%) (let [c    (c w)
-                                   temp (pegasus (second n) g w)]
-                                (if temp ; If we succeed, then we fail - that's the point of AnyNot
-                                    nil
-                                    (do (m w) c) ; If we fail, then we accept the current char
-                                    )))]
+                                   temp (pegasus b g w)]
+                                ; If we succeed, then we fail - that's the point of AnyNot... If we fail, then we accept the current char
+                                (if temp nil (do (m w) c) )))]
         result))
 
 (defn- try-char [n w]
@@ -92,7 +88,6 @@
             (debug w (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
             nil)))
 
-; Failure needs to move the pos back...
 (defn- peg-vec [n g w]
     (loop [remaining    n
            result       []]
