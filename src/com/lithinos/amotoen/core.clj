@@ -12,23 +12,29 @@
 (defprotocol IPosition
     (psdebug [t] "")
     (clone [t] "")
-    (g [t] "Returns pos") ; E.V.I.L.
-    (s [t j] "Sets pos") ; E.V.I.L.
+    (gp [t] "Returns pos") ; E.V.I.L.
+    (sp [t j] "Sets pos") ; E.V.I.L.
+    (in [t] "")
+    (de [t] "")
     (m [t] "Returns the 'c' then (inc pos)")
     (c [t] "The character at pos"))
 (defn gen-ps
     ([s] (gen-ps s 0))
     ([s j]
-        (let [j (ref j)]
+        (let [j (ref j)
+              indent (ref 0)]
             (reify IPosition
                 (psdebug [t]
-                    (if (< @j 0)
-                        (str "<-" (subs s 0 20))
-                        (str    "'" (subs s (max 0 (- @j 30)) (max 0 @j)) "'"
-                                " ->" (c t) "<- "
-                                "'" (subs s (inc @j) (min (+ @j 30) (count s))) "'")))
-                (g [t] @j)
-                (s [t k] (dosync (ref-set j k)))
+                    (str    (if (< @j 0)
+                                (str "<-" (subs s 0 20))
+                                (str    "'" (subs s (max 0 (- @j 30)) (max 0 @j)) "'"
+                                        " " (c t) " "
+                                        "'" (subs s (inc @j) (min (+ @j 30) (count s))) "'"))
+                            (apply str (take @indent (repeat "  ")))))
+                (in [t] (dosync (alter indent inc)))
+                (de [t] (dosync (alter indent dec)))
+                (gp [t] @j)
+                (sp [t k] (dosync (ref-set j k)))
                 (clone [t] (gen-ps s @j))
                 (m [t] (let [r (c t)] (dosync (alter j inc)) r))
                 (c [t] (.charAt s @j))))))
@@ -40,7 +46,7 @@
 (defn- debugt [w & args] (print (psdebug w)) (apply println args))
 
 (def #^{:private true} grammar-grammar {
-    :Whitespace     '(| \space \newline \tab)
+    :Whitespace     '(| \space \newline \tab \,)
     :_*             '(* :Whitespace)
     :_              [:Whitespace '(* :Whitespace)]
     :Grammar        [\{ :_* :Rule '(* [:_ :Rule]) :_* \}]
@@ -48,11 +54,11 @@
     :Keyword        [\: :ValidKeywordChar '(* :ValidKeywordChar)]
     :Body           '(| :Keyword :Grouping :Char)
     :Grouping       '(| :Sequence :Either :ZeroOrMore :ZeroOrOne :AnyNot)
-    :Sequence       [\[         :_* [:Body '(* [:_* :Body])]    :_* \]]
-    :Either         [[\( \|]    :_  [:Body '(* [:_* :Body])]    :_* \)]
-    :ZeroOrMore     [[\( \*]    :_  :Body                       :_* \)]
-    :ZeroOrOne      [[\( \?]    :_  :Body                       :_* \)]
-    :AnyNot         [[\( \%]    :_  '(| :Keyword :Char)         :_* \)]
+    :Sequence       [\[     :_* :Body '(* [:_* :Body])  :_* \]]
+    :Either         [\( \|  :_  :Body '(* [:_* :Body])  :_* \)]
+    :ZeroOrMore     [\( \*  :_  :Body                   :_* \)]
+    :ZeroOrOne      [\( \?  :_  :Body                   :_* \)]
+    :AnyNot         [\( \%  :_  '(| :Keyword :Char)     :_* \)]
     :Char           [\\ '(| :TabChar :SpaceChar :NewlineChar (% \space)) '(* \space)]
     :TabChar        (pegs "tab")
     :SpaceChar      (pegs "space")
@@ -61,11 +67,11 @@
 })
 
 (defn- either [n g w]
-    (let [original (g w)]
-        (first (keep  #(do  (s w original)
-                            (debug w "Either trying:" (pr-str %))
+    (let [original (gp w)] ; E.V.I.L.
+        (first (keep  #(do  (sp w original) ; E.V.I.L.
+                            ;(debug w "Either trying:" (pr-str %))
                             (pegasus % g w))
-                        (rest n))))
+                        (rest n)))))
 
 (defn- type-list [n g w]
     (let [t (first n)
@@ -84,7 +90,7 @@
                     (= t '%) (let [c    (c w)
                                    temp (pegasus b g w)]
                                 ; If we succeed, then we fail - that's the point of AnyNot... If we fail, then we accept the current char
-                                (if temp nil (do (m w) c) )))]
+                                (if temp nil (do (debug w "AnyNot MATCH:" (pr-str b)) (m w) c) )))]
         result))
 
 (defn- try-char [n w]
@@ -93,7 +99,7 @@
             (debug w (str "MATCH: '" (pr-str n) "' with '" (c w) "'"))
             (m w))
         (do
-            (debug w (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
+            ;(debug w (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
             nil)))
 
 (defn- peg-vec [n g w]
@@ -110,12 +116,16 @@
 (defn- p [w s n] (debug w s (pr-str n)) (flush))
 
 (defn pegasus [n g w]
+    (in w)
+    (let [result
     (cond
         (keyword? n)(do (p w "k:" n) (flush) (let [temp (pegasus (n g) g w)] (if temp {n temp} nil)))
-        (vector? n) (do (p w "v:" n) (flush) (peg-vec n g w))
-        (list? n)   (do (p w "l:" n) (flush) (type-list n g w))
+        (vector? n) (do #_(p w "v:" n) (flush) (peg-vec n g w))
+        (list? n)   (do #_(p w "l:" n) (flush) (type-list n g w))
         (char? n)   (do #_(p w "c:" n) (flush) (try-char n w))
-        true        (throw (Error. (str "Unknown type: " n)))))
+        true        (throw (Error. (str "Unknown type: " n))))]
+    (de w)
+    result))
 
 (defn self-check []
     #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a}))))) (flush)
