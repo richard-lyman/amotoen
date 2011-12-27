@@ -8,11 +8,29 @@
 
 (ns com.lithinos.amotoen.core)
 
-(defn debug [& args] #_(apply println args))
-
+(declare pegasus)
+(defprotocol IPosition (psdebug [t] "") (clone [t] "") (m [t] "Returns the 'c' then (inc pos)") (c [t] "The character at pos"))
+(defn gen-ps
+    ([s] (gen-ps s 0))
+    ([s j]
+        (let [j (ref j)]
+            (reify IPosition
+                (psdebug [t]
+                    (if (< @j 0)
+                        (str "<-" (subs s 0 20))
+                        (str    "'" (subs s (max 0 (- @j 30)) (max 0 @j)) "'"
+                                " ->" (c t) "<- "
+                                "'" (subs s (inc @j) (min (+ @j 30) (count s))) "'")))
+                (clone [t] (gen-ps s @j))
+                (m [t] (let [r (c t)] (dosync (alter j inc)) r))
+                (c [t] (.charAt s @j))))))
 ;(defn lpegs [t s] (list (cons t (seq s)))) ; Somehow this doesn't work... (list? (list ...)) returns false...
-(defn lpegs [t s] (reverse (into '() (cons t (seq s)))))
+(defn lpegs [t s] (reverse (into '() (cons t (seq s))))) ; ... but this doesn't need to be fast
 (defn pegs [s] (vec (seq s)))
+
+
+(defn- debug [w & args] (print (psdebug w)) (apply println args))
+(defn- debugt [w & args] (print (psdebug w)) (apply println args))
 
 (def #^{:private true} grammar-grammar {
     :Whitespace     '(| \space \newline \tab)
@@ -35,34 +53,26 @@
     :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
 })
 
-(declare pegasus)
-
-(defprotocol IPosition (clone [t] "") (m [t] "Returns the 'c' then (inc pos)") (c [t] "The character at pos"))
-(defn gen-ps
-    ([s] (gen-ps s 0))
-    ([s j]
-        (let [j (ref j)]
-            (reify IPosition
-                (clone [t] (gen-ps s @j))
-                (m [t] (let [r (c t)] (dosync (alter j inc)) r))
-                (c [t] (.charAt s @j))))))
-
-(defn- either [n g w] (first (keep #(do (debug "Either trying:" %) (pegasus % g w)) (rest n))))
+(defn- either [n g w] (first (keep #(do (debug w "Either trying:" (pr-str %)) (pegasus % g w)) (rest n))))
 
 (defn- type-list [n g w]
     (let [t (first n)
           result (cond
-                    (= t '|) (let [temp (either n g w)] (debug "Either returning:" temp) temp)
+                    (= t '|) (let [temp (either n g w)] (debug w "Either returning:" temp) temp)
                     (= t '*) (list
                                 (doall
                                     (take-while
                                         #(if (map? %)
                                             (do
-                                                (debug "Filter * first:" ((second n) %) %)
+                                                (debugt w "Filter * first:" ((second n) %) %)
                                                 ((second n) %))
                                             (do
-                                                (debug "Filter * second:" %) ; This can't be what it should be... this would fail the :Grammar (* [:_ :Rule]) bit
-                                                false))
+                                                (debugt w "Filter * second:" % "," n "," (second n)) ; This can't be what it should be... this would fail the :Grammar (* [:_ :Rule]) bit
+                                                ;(not (nil? %))
+                                                (if (nil? %)
+                                                    nil
+                                                    true)
+                                                ))
                                         (repeatedly #(pegasus (second n) g w)))))
                     (= t '?) (pegasus (second n) g w)
                     (= t '%) (let [c    (c w)
@@ -76,12 +86,13 @@
 (defn- try-char [n w]
     (if (= n (c w))
         (do
-            (debug (str "MATCH: '" (pr-str n) "' with '" (c w) "'"))
+            (debug w (str "MATCH: '" (pr-str n) "' with '" (c w) "'"))
             (m w))
         (do
-            (debug (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
+            (debug w (str "Char mismatch: '" (pr-str n) "' with '" (c w) "'"))
             nil)))
 
+; Failure needs to move the pos back...
 (defn- peg-vec [n g w]
     (loop [remaining    n
            result       []]
@@ -93,14 +104,14 @@
                             (conj result temp))
                     nil)))))
 
-(defn- p [s n] (debug s (pr-str n)) (flush))
+(defn- p [w s n] (debug w s (pr-str n)) (flush))
 
 (defn pegasus [n g w]
     (cond
-        (keyword? n)(do (p "k:" n) (flush) (let [temp (pegasus (n g) g w)] (if temp {n temp} nil)))
-        (vector? n) (do (p "v:" n) (flush) (peg-vec n g w))
-        (list? n)   (do (p "l:" n) (flush) (type-list n g w))
-        (char? n)   (do #_(p "c:" n) (flush) (try-char n w))
+        (keyword? n)(do (p w "k:" n) (flush) (let [temp (pegasus (n g) g w)] (if temp {n temp} nil)))
+        (vector? n) (do (p w "v:" n) (flush) (peg-vec n g w))
+        (list? n)   (do (p w "l:" n) (flush) (type-list n g w))
+        (char? n)   (do #_(p w "c:" n) (flush) (try-char n w))
         true        (throw (Error. (str "Unknown type: " n)))))
 
 (defn self-check []
