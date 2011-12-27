@@ -12,6 +12,8 @@
 (defprotocol IPosition
     (psdebug [t] "")
     (clone [t] "")
+    (g [t] "Returns pos") ; E.V.I.L.
+    (s [t j] "Sets pos") ; E.V.I.L.
     (m [t] "Returns the 'c' then (inc pos)")
     (c [t] "The character at pos"))
 (defn gen-ps
@@ -25,6 +27,8 @@
                         (str    "'" (subs s (max 0 (- @j 30)) (max 0 @j)) "'"
                                 " ->" (c t) "<- "
                                 "'" (subs s (inc @j) (min (+ @j 30) (count s))) "'")))
+                (g [t] @j)
+                (s [t k] (dosync (ref-set j k)))
                 (clone [t] (gen-ps s @j))
                 (m [t] (let [r (c t)] (dosync (alter j inc)) r))
                 (c [t] (.charAt s @j))))))
@@ -56,8 +60,12 @@
     :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
 })
 
-; Each re-attempt needs to have the pos set back...
-(defn- either [n g w] (first (keep #(do (debug w "Either trying:" (pr-str %)) (pegasus % g w)) (rest n))))
+(defn- either [n g w]
+    (let [original (g w)]
+        (first (keep  #(do  (s w original)
+                            (debug w "Either trying:" (pr-str %))
+                            (pegasus % g w))
+                        (rest n))))
 
 (defn- type-list [n g w]
     (let [t (first n)
