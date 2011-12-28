@@ -6,7 +6,8 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.core)
+(ns com.lithinos.amotoen.core
+    (:require clojure.pprint))
 
 (declare pegasus)
 (defprotocol IPosition
@@ -133,7 +134,7 @@
     #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a}))))) (flush)
     #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps "{:S \\a}")))) (flush)
     ; Shouldn't be nil
-    (println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str grammar-grammar))))) (flush)
+    (pprint (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str grammar-grammar))))) (flush)
     #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps "{:S \\a :B \\b}")))) (flush)
     #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str
         {
