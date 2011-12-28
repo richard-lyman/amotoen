@@ -67,10 +67,19 @@
 
 ; This needs to be some form of pmap
 (defn- either [n g w]
-    (let [original (gp w)] ; E.V.I.L.
-        (first (keep  #(do  (sp w original) ; E.V.I.L.
-                            (pegasus % g w))
-                        (rest n)))))
+    #_(let [original (gp w)] (first (keep  #(do  (sp w original)
+                                                (pegasus % g w))
+                                            (rest n))))
+    ; This is supposed to be faster... I think... the 'backtracking' is done in parallel... but I wonder if pmap is lazy... so each item is still in serial...
+    (let [[result resultw] (first (remove   #(nil? (first %))
+                                            (pmap   #(let [cw (clone w)] [(pegasus % g cw) cw])
+                                                    (rest n))))]
+        (if (nil? result)
+            nil
+            (do
+                (sp w (gp resultw))
+                result)))
+)
 
 (defn- type-list [n g w]
     (let [t (first n)
