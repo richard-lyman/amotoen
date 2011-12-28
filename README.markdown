@@ -11,9 +11,6 @@
 
 *   Name and Pronunciation
 *   Introduction
-*   Samples
-    *   JSON
-    *   Markdown
 *   Grammar Definitions
 
 <h2>Name and Pronunciation</h2>
@@ -35,95 +32,43 @@ While there are academic papers available that rigorously define PEG, I've found
 that PEGs, or **P**arsing **E**xpression **G**rammar(s), are best explained by the 
 [related Wikipedia page](http://en.wikipedia.org/wiki/Parsing_expression_grammar).
 
-The clj-peg library was a predecessor to Amotoen and as such, Amotoen keeps the 
-feel of the syntax in clj-peg. There are, however, significant differences between 
+The clj-peg library was a predecessor to Amotoen and as such, Amotoen syntax might be reminiscent
+of the syntax in clj-peg. There are, however, significant differences between 
 using clj-peg and using Amotoen. The most significant of those differences can be 
 found in the lack of macros, gen-class, or gen-interface. The clj-peg library used
 *the dirty three* in the core, and Amotoen avoids all of them entirely.
 
 Amotoen uses runtime processing of a given grammar, where clj-peg used macro 
 time expansion of a grammar. Amotoen uses protocols instead of interfaces. Amotoen
-uses internally defined Throwables instead of gen-classed Errors. All of these changes
+internally uses nils instead of gen-classed Errors. All of these changes
 result in far greater ease of use as well as increased maintainence.
 
-
-<h2>Samples</h2>
-
-There are three simple commands to get started playing with Amotoen.
-
-First, clone the git repo:
-
-    git clone git://github.com/richard-lyman/amotoen.git
-
-Second, change the current working directory to the newly created amotoen directory:
-
-    cd amotoen
-
-Third, start a Clojure repl with the Amotoen jar that we cloned:
-
-    lein repl
-
-<h3>JSON</h3>
-
-In the REPL load some basic libraries:
-
-    user=> (use '(com.lithinos.amotoen core string-wrapper) 
-                '(com.lithinos.amotoen.grammars json))
-    
-Use the provided JSON grammar to create a JSON parser:
-
-    user=> (def jsonp (create-parser grammar))
-
-Throw some JSON at your parser (after wrapping it in the provided string-wrapper):
-
-    user=> (pprint (jsonp (wrap-string "1")))
-
-You'll see the structure resulting from that particular grammar's parser processing the wrapped input `"1"`:
-
-    {:JSONRoot
-     [{:_* ""}
-      ({:Value {:JSONNumber {:Int {:Digit "1"}}}})
-      {:_* ""}
-      {:$ :EOF}]}
-
-That resulting structure is a native Clojure data structure, nothing special about it.
-
-
-<h3>Markdown</h3>
-
-In the REPL load some basic libraries:
-
-    user=> (use '(com.lithinos.amotoen core string-wrapper)
-                '(com.lithinos.amotoen [markdown :rename {grammar markdown-grammar}]))
-
-Use the provided and renamed markdown grammar to create a markdown parser:
-
-    user=> (def mdp (create-parser markdown-grammar))
-
-Throw some markdown at your parser (after wrapping it in the provided string-wrapper):
-
-    user=> (pprint (mdp (wrap-string "[1][]")))
-
-You'll see the structure resulting from that particular grammar's parser processing the wrapped input `"[1][]"`:
-
-    {:Document
-     [({:Line
-        ({:Span
-          {:Link
-           ["["
-            {:LinkTextOrLabel "1"}
-            "]"
-            {:ReferenceLink {:ImplicitRefLink [() "[]"]}}]}})})
-      {:$ :EOF}]}
-
-That resulting structure is a native Clojure data structure, nothing special about it.
-
+In other words: **Amotoen is better than clj-peg. Amotoen is not AOT'd**.
 
 <h2>Grammar Definitions</h2>
 
-The JSON grammar used above is shown [here](http://github.com/richard-lyman/amotoen/blob/master/src/com/lithinos/amotoen/grammars/json.clj#L11-48).
+The grammar for Amotoen grammars is:
 
-The markdown grammar used above is shown [here](http://github.com/richard-lyman/amotoen/blob/master/src/com/lithinos/amotoen/markdown.clj#L11-75).
+    {
+        :Whitespace     '(| \space \newline \tab \,)
+        :_*             '(* :Whitespace)
+        :_              [:Whitespace '(* :Whitespace)]
+        :Grammar        [\{ :_* :Rule '(* [:_ :Rule]) :_* \}]
+        :Rule           [:Keyword :_ :Body]
+        :Keyword        [\: :ValidKeywordChar '(* :ValidKeywordChar)]
+        :Body           '(| :Keyword :Char :Grouping)
+        :Grouping       '(| :Sequence :Either :ZeroOrMore :ZeroOrOne :AnyNot)
+        :Sequence       [\[     :_* :Body '(* [:_* :Body])  :_* \]]
+        :Either         [\( \|  :_  :Body '(* [:_* :Body])  :_* \)]
+        :ZeroOrMore     [\( \*  :_  :Body                   :_* \)]
+        :ZeroOrOne      [\( \?  :_  :Body                   :_* \)]
+        :AnyNot         [\( \%  :_  '(| :Keyword :Char)     :_* \)]
+        :Char           [\\ '(| :TabChar :SpaceChar :NewlineChar (% \space))]
+        :TabChar        (pegs "tab")
+        :SpaceChar      (pegs "space")
+        :NewlineChar    (pegs "newline")
+        :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
+    }
 
 I'll be adding more documentation on writing grammars soon...
 
