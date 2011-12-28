@@ -70,8 +70,11 @@
     #_(let [original (gp w)] (first (keep  #(do  (sp w original)
                                                 (pegasus % g w))
                                             (rest n))))
-    ; This is supposed to be faster... I think... the 'backtracking' is done in parallel... but I wonder if pmap is lazy... so each item is still in serial...
-    (let [[result resultw] (first (remove   #(nil? (first %))
+;
+; So. The two below are supposed to be 'faster'... when the body you're running is slow-ish... in comparison... and it's not...
+;       ... that might be because for most situations the 'backtracking' is only a single character worth
+;
+    #_(let [[result resultw] (first (remove   #(nil? (first %))
                                             (pmap   #(let [cw (clone w)] [(pegasus % g cw) cw])
                                                     (rest n))))]
         (if (nil? result)
@@ -79,6 +82,14 @@
             (do
                 (sp w (gp resultw))
                 result)))
+    #_(let [[result resultw] (first (drop-while   #(nil? @(first %))
+                                                (doall (map     #(let [cw (clone w)] [(future (pegasus % g cw)) cw])
+                                                                (rest n)))))]
+        (if (nil? result)
+            nil
+            (do
+                (sp w (gp resultw))
+                @result)))
 )
 
 (defn- type-list [n g w]
