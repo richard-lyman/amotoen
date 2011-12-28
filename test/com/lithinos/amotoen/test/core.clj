@@ -37,3 +37,5 @@ a")))
         (pprint (mdp (wrap-string "a
                 
 a")))))
+
+(self-check)

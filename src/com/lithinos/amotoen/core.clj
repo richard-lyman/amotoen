@@ -114,24 +114,8 @@
     (de w)
     result))
 
-(defn self-check []
-    #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str {:S \a}))))) (flush)
-    #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps "{:S \\a}")))) (flush)
-    (pprint (pegasus :Grammar grammar-grammar (gen-ps (pr-str grammar-grammar)))) (flush)
-    #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps "{:S \\a :B \\b}")))) (flush)
-    #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str
-        {
-            :Start [\a \b \c]
-            :A '(| \q \w \e)
-            :B \z
-        }
-        ))))) (flush)
-    )
-
-#_(self-check)
-
-#_(
-{:Grammar
+(def grammar-ast (pr-str
+'{:Grammar
  [\{
   {:_* (())}
   {:Rule
@@ -1059,4 +1043,11 @@
   {:_* (())}
   \}]}
 
-)
+))
+
+(defn self-check []
+    (let [result (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str grammar-grammar))))]
+        (if (= result grammar-ast)
+            (println "Good")
+            (println "Fail"))))
+
