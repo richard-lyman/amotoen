@@ -65,14 +65,11 @@
     :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
 })
 
-; This needs to be some form of pmap
-(defn- either [n g w]
-    #_(let [original (gp w)] (first (keep  #(do  (sp w original)
-                                                (pegasus % g w))
-                                            (rest n))))
+(defn- either [n g w] (let [original (gp w)] (first (keep  #(do (sp w original) (pegasus % g w)) (rest n))))
 ;
 ; So. The two below are supposed to be 'faster'... when the body you're running is slow-ish... in comparison... and it's not...
 ;       ... that might be because for most situations the 'backtracking' is only a single character worth
+;       ... and the two below are more complex
 ;
     #_(let [[result resultw] (first (remove   #(nil? (first %))
                                             (pmap   #(let [cw (clone w)] [(pegasus % g cw) cw])
@@ -141,3 +138,64 @@
             (println "Good")
             (println "Fail"))))
 
+;
+; Possibly the grammar used for www
+;
+;        Content                 <- [(+ (| Markup (<+ Non-Markup))) $]
+;        Markup                  <- [(! Almost-Alphanumeric) (| HRule MDash List SS U H4 H3 H2 H1 B I Href Pre)]
+;        Markup-Guard            <- (!   HRule-Delim MDash-Delim List-Marker SS-Delim U-Delim H4-Delim
+;                                        H3-Delim H2-Delim H1-Delim B-Delim I-Delim Href-LDelim Pre-LDelim)
+;        Non-Markup              <- (| [Markup-Guard (| Any-Char)])
+;        List                    <- (| Ordered-List  Unordered-List)
+;        Href                    <- (| Href-Straight Href-Explained)
+;        Ordered-List            <- (+ [(* (| Space Newline)) Ordered-List-Marker    List-Body])
+;        Unordered-List          <- (+ [(* (| Space Newline)) Unordered-List-Marker  List-Body])
+;        H1                      <- [H1-Delim    Markup-Body H1-Delim]
+;        H2                      <- [H2-Delim    Markup-Body H2-Delim]
+;        H3                      <- [H3-Delim    Markup-Body H3-Delim]
+;        H4                      <- [H4-Delim    Markup-Body H4-Delim]
+;        B                       <- [B-Delim     Markup-Body B-Delim]
+;        I                       <- [I-Delim     Markup-Body I-Delim]
+;        U                       <- [U-Delim     Markup-Body U-Delim]
+;        SS                      <- [SS-Delim    SS-Body         SS-Delim]
+;        Pre                     <- [Pre-LDelim  Pre-Markup-Body Pre-RDelim]
+;        Href-Straight           <- [Href-LDelim Href-Straight-Link                      Href-RDelim]
+;        Href-Explained          <- [Href-LDelim Href-Markup-Link Space Href-Markup-Body Href-RDelim]
+;        List-Chunk              <- (| SS    U B I Href Pre  (+ [(! Newline) Non-Markup]))
+;        SS-Chunk                <- (|       U B I Href      Markup-Body)
+;        SS-Body                 <- (+ [(! SS-Delim)     SS-Chunk])
+;        List-Body               <- (+ [(! Newline)      List-Chunk])
+;        Pre-Markup-Body         <- (+ [(! Pre-RDelim)   Any-Char])
+;        Href-Markup-Body        <- (+ [(! Href-RDelim)  Any-Char])
+;        Href-Markup-Link        <- (+ [(! Space)        Any-Char])
+;        Markup-Body             <- (+ Non-Markup)
+;        Any-Char                <- (| Empty-Line Escaped-Char Non-Escaped-Char)
+;        Empty-Line              <- [Newline Newline]
+;        Escaped-Char            <- [Exclamation Escapable-Char]
+;        List-Marker             <- (| Unordered-List-Marker Ordered-List-Marker)
+;        HRule                   <- HRule-Delim
+;        MDash                   <- MDash-Delim
+;        Almost-Alphanumeric     <- #"^[A-Za-z02-9]" ; The number one is potential markup...
+;        Href-Straight-Link      <- #"^[^] ]+"
+;        Unordered-List-Marker   <- "-- "
+;        Ordered-List-Marker     <- "1. "
+;        HRule-Delim             <- "----"
+;        MDash-Delim             <- "---"
+;        H1-Delim                <- "="
+;        H2-Delim                <- "=="
+;        H3-Delim                <- "==="
+;        H4-Delim                <- "===="
+;        B-Delim                 <- "'''"
+;        I-Delim                 <- "''"
+;        U-Delim                 <- "__"
+;        SS-Delim                <- "^"
+;        Pre-LDelim              <- "{{{"
+;        Pre-RDelim              <- "}}}"
+;        Href-LDelim             <- "["
+;        Href-RDelim             <- "]"
+;        Newline                 <- "\n"
+;        Space                   <- " "
+;        Exclamation             <- "!"
+;        Escapable-Char          <- #"^[A-Z!\[=]"
+;        Non-Escaped-Char        <- #"(?s)^.")}))
+;
