@@ -38,12 +38,12 @@
                 (clone [t] (gen-ps s @j))
                 (m [t] (let [r (c t)] (dosync (alter j inc)) r))
                 (c [t] (.charAt s @j))))))
-(defn lpegs [t s] (reverse (into '() (cons t (seq s))))) ; This doesn't need to be fast, but shouldn't this work: (list (cons t (seq s)))
+(defn lpegs [t s] (reverse (into '() (cons t (seq s))))) ; This doesn't need to be fast, but shouldn't the following work? (list (cons t (seq s)))
 (defn pegs [s] (vec (seq s)))
 
 
-(defn- debug [w & args] (print (psdebug w)) (apply println args))
-(defn- debugt [w & args] (print (psdebug w)) (apply println args))
+(defn- debug [w & args] #_(print (psdebug w)) #_(apply println args))
+(defn- debugt [w & args] #_(print (psdebug w)) #_(apply println args))
 
 (def #^{:private true} grammar-grammar {
     :Whitespace     '(| \space \newline \tab \,)
@@ -59,7 +59,7 @@
     :ZeroOrMore     [\( \*  :_  :Body                   :_* \)]
     :ZeroOrOne      [\( \?  :_  :Body                   :_* \)]
     :AnyNot         [\( \%  :_  '(| :Keyword :Char)     :_* \)]
-    :Char           [\\ '(| :TabChar :SpaceChar :NewlineChar (% \space)) '(* \space)]
+    :Char           [\\ '(| :TabChar :SpaceChar :NewlineChar (% \space))]
     :TabChar        (pegs "tab")
     :SpaceChar      (pegs "space")
     :NewlineChar    (pegs "newline")
@@ -84,7 +84,9 @@
                                         #(cond
                                             (keyword? b)(b %)
                                             (list? b)   (do (debug w "Zero-or-more on list:" %) %)
-                                            (char? b)   %)
+                                            (vector? b) %
+                                            (char? b)   %
+                                            true        (throw (Error. (str "Not supposed to get here: " %))))
                                         (repeatedly #(pegasus b g w)))))
                     (= t '?) (pegasus b g w)
                     (= t '%) (let [c    (c w)
@@ -132,6 +134,14 @@
     #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps "{:S \\a}")))) (flush)
     ; Shouldn't be nil
     (println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str grammar-grammar))))) (flush)
+    #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps "{:S \\a :B \\b}")))) (flush)
+    #_(println (pr-str (pegasus :Grammar grammar-grammar (gen-ps (pr-str
+        {
+            :Start [\a \b \c]
+            :A '(| \q \w \e)
+            :B \z
+        }
+        ))))) (flush)
     )
 
 (self-check)
