@@ -38,5 +38,6 @@ a")))
                 
 a")))))
 
+;(dosync (ref-set *debug* true))
 (println "Single run") (time (self-check))
 ;(println "20 runs") (time (doall (take 20 (repeatedly #(self-check)))))
