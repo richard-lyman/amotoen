@@ -41,7 +41,7 @@
 (defn lpegs [t s] (reverse (into '() (cons t (seq s))))) ; This doesn't need to be fast, but shouldn't the following work? (list (cons t (seq s)))
 (defn pegs [s] (vec (seq s)))
 
-(def *debug* (ref false))
+(def ^:dynamic *debug* (ref false))
 (defn- debug [w & args] (when @*debug* (print (psdebug w)) (apply println args) (flush)))
 
 (def #^{:private true} grammar-grammar {
