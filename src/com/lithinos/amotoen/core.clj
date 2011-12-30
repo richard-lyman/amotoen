@@ -6,17 +6,16 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.core
-    (:use clojure.pprint))
+(ns com.lithinos.amotoen.core)
 
 (declare pegasus)
 (defprotocol IPosition
     (psdebug    [t]     "Some form of helpful debug info")
+    (in         [t]     "Indent - for debugging")
+    (de         [t]     "Dedent - for debugging")
     (clone      [t]     "")
     (gp         [t]     "Get pos") ; E.V.I.L. ... maybe
     (sp         [t j]   "Set pos") ; E.V.I.L. ... maybe
-    (in         [t]     "Indent - for debugging")
-    (de         [t]     "Dedent - for debugging")
     (end        [t]     "End of input")
     (m          [t]     "Returns the 'c' then (inc pos)")
     (c          [t]     "The character at pos"))
@@ -29,9 +28,9 @@
                 (psdebug [t]
                     (let [indent-string (apply str (take @indent (repeat "  ")))
                           padding (apply str (take 60 (repeat " ")))
-                          x (str "'" (pr-str (subs s (max 0 (- @j 30)) (max 0 @j))) "'")
+                          x (str "'" (pr-str (try (subs s (max 0 (- @j 30)) (max 0 @j)) (catch Exception e ""))) "'")
                           y (str " " (pr-str (c t)) " ")
-                          z (str "'" (pr-str (subs s (inc @j) (min (+ @j 30) (count s)))) "'")]
+                          z (str "'" (pr-str (try (subs s (inc @j) (min (+ @j 30) (count s))) (catch Exception e ""))) "'")]
                         (str (subs (str (if (< @j 0) (str "<-" (subs s 0 20)) (str x y z)) padding) 0 60) indent-string)))
                 (in [t] (dosync (alter indent inc)))
                 (de [t] (dosync (alter indent dec)))
@@ -55,68 +54,39 @@
     :Rule           [:Keyword :_ :Body]
     :Keyword        [\: :ValidKeywordChar '(* :ValidKeywordChar)]
     :Body           '(| :Keyword :Char :Grouping)
-    :Grouping       '(| :Sequence :Either :ZeroOrMore :ZeroOrOne :AnyNot)
+    :Grouping       '(| :Sequence :Either :ZeroOrMore :AnyNot)
     :Sequence       [\[     :_* :Body '(* [:_* :Body])  :_* \]]
     :Either         [\( \|  :_  :Body '(* [:_* :Body])  :_* \)]
     :ZeroOrMore     [\( \*  :_  :Body                   :_* \)]
-    :ZeroOrOne      [\( \?  :_  :Body                   :_* \)]
     :AnyNot         [\( \%  :_  :Body                   :_* \)]
-    :Char           [\\ '(| :TabChar :SpaceChar :NewlineChar (% \space))]
-    :TabChar        (pegs "tab")
-    :SpaceChar      (pegs "space")
-    :NewlineChar    (pegs "newline")
+    :Char           [\\ (list '| (pegs "tab") (pegs "space") (pegs "newline") '(% \space))]
     :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
 })
 
-(defn- either [n g w] (let [original (gp w)] (first (keep  #(do (sp w original) (pegasus % g w)) (rest n))))
-;
-; So. The two below are supposed to be 'faster'... when the body you're running is slow-ish... in comparison... and it's not...
-;       ... that might be because for most situations the 'backtracking' is only a single character worth
-;       ... and the two below could be harder to maintain anyway...
-;
-    #_(let [[result resultw] (first (remove   #(nil? (first %))
-                                            (pmap   #(let [cw (clone w)] [(pegasus % g cw) cw])
-                                                    (rest n))))]
-        (if (nil? result)
-            nil
-            (do
-                (sp w (gp resultw))
-                result)))
-    #_(let [[result resultw] (first (drop-while   #(nil? @(first %))
-                                                (doall (map     #(let [cw (clone w)] [(future (pegasus % g cw)) cw])
-                                                                (rest n)))))]
-        (if (nil? result)
-            nil
-            (do
-                (sp w (gp resultw))
-                @result)))
-)
+(defn- either [n g w] (let [original (gp w)] (first (keep  #(do (sp w original) (pegasus % g w)) (rest n)))))
 
-(defn- type-list [n g w]
+(defn- any-not [b g w]
+    (let [c (c w) p (gp w)]
+        (if (pegasus b g w)
+            (do (sp w p) nil) ; If we succeed, then we fail - that's the point of AnyNot... and rollback
+            (do (debug w "AnyNot MATCH:" (pr-str b)) (m w) c)))); If we fail, then we accept the current char
+
+(defn- typed-list [n g w]
     (let [t (first n)
-          b (second n)]
-        (cond   (= t '|) (let [temp (either n g w)] (debug w "Either returning:" (pr-str temp)) temp)
-                (= t '*) (list (doall (take-while   #(if (keyword? b) (b %) %)
-                                                    (repeatedly #(pegasus b g w)))))
-                (= t '?) (pegasus b g w)
-                (= t '%) (let [c (c w)
-                               p (gp w)]
-                            (if (pegasus b g w)
-                                (do                                     ; If we succeed, then we fail - that's the point of AnyNot...
-                                    (sp w p) ; Don't forget 'rollback'
-                                    nil)
-                                (do                                     ; If we fail, then we accept the current char
-                                    (debug w "AnyNot MATCH:" (pr-str b))
-                                    (m w)
-                                    c))))))
+          b (second n)
+          result (cond  (= t '|) (let [temp (either n g w)] (debug w "Either returning:" (pr-str temp)) temp)
+                        (= t '%) (any-not b g w)
+                        (= t '*) (doall (take-while #(if (keyword? b) (b %) %)
+                                                    (repeatedly #(pegasus b g w)))))]
+        (if (and (seq? result) (= 1 (count result)))
+            (first result)
+            result)))
 
 (defn- try-char [n w]
     (if (= n (c w))
-        (do
-            (debug w (str "MATCH: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
+        (do (debug w (str "MATCH: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
             (m w))
-        (do
-            (debug w (str "FAIL: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
+        (do (debug w (str "FAIL: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
             nil)))
 
 (defn- peg-vec [n g w]
@@ -125,26 +95,25 @@
         (if (empty? remaining)
             result
             (let [temp (pegasus (first remaining) g w)]
-                (if temp
-                    (recur  (rest remaining)
-                            (conj result temp))
-                    nil)))))
+                (if temp (recur (rest remaining)
+                                (conj result temp)))))))
 
 (defn- p [w s n] (debug w s (pr-str n)))
 
+; Accept a 'debug limit' - if 0 then always dump everything. If more than 0, only keep limit number of lines of debug and print out at end
 (defn pegasus [n g w]
     (in w)
     (let [result (cond
-                    (keyword? n)(do (p w "k:" n)    (let [temp (pegasus (n g) g w)] (if temp {n temp} nil)))
-                    (vector? n) (do #_(p w "v:" n)  (peg-vec n g w))
-                    (list? n)   (do #_(p w "l:" n)  (type-list n g w))
-                    (char? n)   (do #_(p w "c:" n)  (try-char n w))
+                    (keyword? n)(do (p w "k:" n) (let [temp (pegasus (n g) g w)] (if temp {n temp} nil)))
+                    (vector? n) (do #_(p w "v:" n) (peg-vec n g w))
+                    (list? n)   (do #_(p w "l:" n) (typed-list n g w))
+                    (char? n)   (do #_(p w "c:" n) (try-char n w))
                     true        (throw (Error. (str "Unknown type: " n))))]
     (de w)
     result))
 
-(defn validate
-    ([g] (validate g false))
+; If pegasus is given a keyword, but it doesn't exist in the given grammar, a useful error should be thrown
+(defn validate ([g] (validate g false))
     ([g d]
         (dosync (ref-set *debug* d))
         (let [w (gen-ps (pr-str g))]
@@ -155,11 +124,4 @@
         (dosync (ref-set *debug* false))))
 
 (defn self-check [] (validate grammar-grammar))
-
-
-; TODO
-; 
-;   If pegasus is given a keyword, but it doesn't exist in the given grammar, a useful error should be thrown
-;   Allow debug to accept a 'limit' - if 0 then always dump everything. If more than 0, only keep limit number of lines of debug and print out at end
-;
 
