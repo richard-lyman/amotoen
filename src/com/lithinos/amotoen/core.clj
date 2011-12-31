@@ -9,6 +9,7 @@
 (ns com.lithinos.amotoen.core)
 
 (declare pegasus)
+(def ^:dynamic *currentK* (ref nil))
 (defprotocol IPosition
     (psdebug    [t]     "Some form of helpful debug info")
     (in         [t]     "Indent - for debugging")
@@ -44,7 +45,7 @@
 (defn pegs [s] (vec (seq s)))
 
 (def ^:dynamic *debug* (ref false))
-(defn- debug [w & args] (when @*debug* (print (psdebug w)) (apply println args) (flush)))
+(defn- debug [w & args] (when @*debug* (print (psdebug w)) (print @*currentK* " ") (apply println args) (flush)))
 
 (def #^{:private true} grammar-grammar {
     :Whitespace     '(| \space \newline \tab \,)
@@ -69,12 +70,12 @@
     (let [c (c w) p (gp w)]
         (if (pegasus b g w)
             (do (sp w p) nil) ; If we succeed, then we fail - that's the point of AnyNot... and rollback
-            (do (debug w "AnyNot MATCH:" (pr-str b)) (m w) c)))); If we fail, then we accept the current char
+            (do (debug w "AnyNot MATCH:" (pr-str b) c) (m w) c)))); If we fail, then we accept the current char
 
 (defn- typed-list [n g w]
     (let [t (first n)
           b (second n)
-          result (cond  (= t '|) (let [temp (either n g w)] (debug w "Either returning:" (pr-str temp)) temp)
+          result (cond  (= t '|) (let [temp (either n g w)] #_(debug w "Either returning:" (pr-str temp)) temp)
                         (= t '%) (any-not b g w)
                         (= t '*) (doall (take-while #(if (keyword? b) (b %) %)
                                                     (repeatedly #(pegasus b g w)))))]
@@ -86,7 +87,7 @@
     (if (= n (c w))
         (do (debug w (str "MATCH: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
             (m w))
-        (do (debug w (str "FAIL: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
+        (do #_(debug w (str "FAIL: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
             nil)))
 
 (defn- peg-vec [n g w]
@@ -103,12 +104,14 @@
 ; Accept a 'debug limit' - if 0 then always dump everything. If more than 0, only keep limit number of lines of debug and print out at end
 (defn pegasus [n g w]
     (in w)
+    (when (keyword? n) (dosync (ref-set *currentK* n)))
     (let [result (cond
                     (keyword? n)(do (p w "k:" n) (let [temp (pegasus (n g) g w)] (if temp {n temp} nil)))
                     (vector? n) (do #_(p w "v:" n) (peg-vec n g w))
                     (list? n)   (do #_(p w "l:" n) (typed-list n g w))
                     (char? n)   (do #_(p w "c:" n) (try-char n w))
                     true        (throw (Error. (str "Unknown type: " n))))]
+    (when (keyword? n) (dosync (ref-set *currentK* n)))
     (de w)
     result))
 
@@ -125,3 +128,8 @@
 
 (defn self-check [] (validate grammar-grammar))
 
+
+; TODO
+;
+; When processing the elements of a vector - the keyword needs to return to whatever it was each time an element is processed...
+;
