@@ -91,13 +91,16 @@
             nil)))
 
 (defn- peg-vec [n g w]
-    (loop [remaining    n
-           result       []]
-        (if (empty? remaining)
-            result
-            (let [temp (pegasus (first remaining) g w)]
-                (if temp (recur (rest remaining)
-                                (conj result temp)))))))
+    (let [p (gp w)]
+        (loop [remaining    n
+               result       []]
+            (if (empty? remaining)
+                result
+                (let [temp (pegasus (first remaining) g w)]
+                    (if temp    (recur (rest remaining)
+                                    (conj result temp))
+                                (do (sp w p)
+                                    nil)))))))
 
 (defn- p [w s n] (debug w s (pr-str n)))
 
@@ -126,7 +129,13 @@
                 (println "Pass")))
         (dosync (ref-set *debug* false))))
 
-(defn self-check [] (validate grammar-grammar))
+(defn self-check []
+    (validate grammar-grammar)
+    (let [g {:S [(list '* (list '% (pegs "}}}"))) (pegs "}}}")]}
+          i "a}}b}}}"]
+        (when (not= '{:S [(\a \} \} \b) [\} \} \}]]} (pegasus :S g (gen-ps i)))
+            (throw (Error. "Failed Vectors are not resetting the pos."))))
+    )
 
 
 ; TODO
