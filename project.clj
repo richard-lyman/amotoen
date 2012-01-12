@@ -6,5 +6,5 @@
     :resources-path "res"
     :dependencies [[org.clojure/clojure "1.3.0"]]
     :jar-name "amotoen.jar"
-    :jar-exclusions [#"(errors|markdown|minimark|string_wrapper|utils|wrapper|csv|json|project).clj" #"maven"]
+    :jar-exclusions [#"(markdown|minimark|csv|json|project).clj" #"maven"]
     :manifest {"Built-By" "\"Richard Lyman\" <richard.lyman@gmail.com>"})
