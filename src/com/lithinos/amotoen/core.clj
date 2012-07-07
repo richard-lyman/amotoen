@@ -8,6 +8,12 @@
 
 (ns com.lithinos.amotoen.core)
 
+; s - input string
+; w - input wrapper
+; g - given grammar
+; r - result to return
+; n - next character in input
+
 (declare pegasus)
 (def ^:dynamic *currentK* (ref nil))
 (defprotocol IPosition
@@ -64,24 +70,13 @@
     :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
 })
 
-(defn- either [n g w] (let [original (gp w)] (first (keep  #(do (sp w original) (pegasus % g w)) (rest n)))))
+(defn- either [n g w] (let [original (gp w)] (first (keep #(do (sp w original) (pegasus % g w)) (rest n)))))
 
 (defn- any-not [b g w]
     (let [c (c w) p (gp w)]
         (if (pegasus b g w)
             (do (sp w p) nil) ; If we succeed, then we fail - that's the point of AnyNot... and rollback
             (do (debug w "AnyNot MATCH:" (pr-str b) c) (m w) c)))); If we fail, then we accept the current char
-
-(defn- typed-list [n g w]
-    (let [t (first n)
-          b (second n)
-          result (cond  (= t '|) (let [temp (either n g w)] #_(debug w "Either returning:" (pr-str temp)) temp)
-                        (= t '%) (any-not b g w)
-                        (= t '*) (doall (take-while #(if (keyword? b) (b %) %)
-                                                    (repeatedly #(pegasus b g w)))))]
-        (if (and (seq? result) (= 1 (count result)))
-            (first result)
-            result)))
 
 (defn- try-char [n w]
     (if (= n (c w))
@@ -102,7 +97,20 @@
                                 (do (sp w p)
                                     nil)))))))
 
+(defn- typed-list [n g w]
+    (let [t (first n)
+          b (second n)
+          result (cond  (= t '|) (let [temp (either n g w)] #_(debug w "Either returning:" (pr-str temp)) temp)
+                        (= t '%) (any-not b g w)
+                        (= t '*) (doall (take-while #(if (keyword? b) (b %) %)
+                                                    (repeatedly #(pegasus b g w))))
+                        (ifn? t) (t (pegasus (if (symbol? b) (rest n) b) g w)))]
+        (if (and (seq? result) (= 1 (count result)))
+            (first result)
+            result)))
+
 (defn- p [w s n] (debug w s (pr-str n)))
+(defn- fp [w s n] (dosync (ref-set *debug* true)) (p w "c:" n) (dosync (ref-set *debug* false)))
 
 ; Accept a 'debug limit' - if 0 then always dump everything. If more than 0, only keep limit number of lines of debug and print out at end
 (defn pegasus [n g w]
@@ -114,9 +122,9 @@
                     (list? n)   (do #_(p w "l:" n) (typed-list n g w))
                     (char? n)   (do #_(p w "c:" n) (try-char n w))
                     true        (throw (Error. (str "Unknown type: " n))))]
-    (when (keyword? n) (dosync (ref-set *currentK* n)))
-    (de w)
-    result))
+        (when (keyword? n) (dosync (ref-set *currentK* n)))
+        (de w)
+        result))
 
 ; If pegasus is given a keyword, but it doesn't exist in the given grammar, a useful error should be thrown
 (defn validate ([g] (validate g false))
@@ -129,16 +137,46 @@
                 (println "Pass")))
         (dosync (ref-set *debug* false))))
 
+(defn vectors-reset-pos []
+    (let [g {:S [(list '* (list '% (pegs "}}}"))) (pegs "}}}")]}
+          i "a}}b}}}"
+          r (pegasus :S g (gen-ps i))]
+        (when (not= '{:S [(\a \} \} \b) [\} \} \}]]} r)
+            (throw (Error. "Failed Vectors are not resetting the pos.")))
+        (println "Pass")))
+
+(defn collapse-pegs []
+    (let [custom-collapse #(apply str %)
+          g {:S [(list custom-collapse (pegs "abcabc"))]}
+          i "abcabc"
+          r (pegasus :S g (gen-ps i))]
+        (when (not= '{:S ["abcabc"]} r)
+            (throw (Error. (str "pegs didn't collapse: " r))))
+        (println "Pass")))
+
+(defn collapse-lpegs []
+    (let [custom-collapse #(apply str %)
+          g {:S [(list custom-collapse '* (lpegs '| "abc"))]}
+          i "aabbcc"
+          r (pegasus :S g (gen-ps i))]
+        (when (not= '{:S ["aabbcc"]} r)
+            (throw (Error. (str "lpegs didn't collapse: " r))))
+        (println "Pass")))
+
+(defn collapse-keywords []
+    (let [custom-collapse (fn [r] (apply str (map #(first (vals %)) r)))
+          g {:S [(list custom-collapse '* '(| :A :B :C))] :A \a :B \b :C \c }
+          i "aabbcc"
+          r (pegasus :S g (gen-ps i))]
+        (when (not= '{:S ["aabbcc"]} r)
+            (throw (Error. (str "keywords didn't collapse: " r))))
+        (println "Pass")))
+
 (defn self-check []
     (validate grammar-grammar)
-    (let [g {:S [(list '* (list '% (pegs "}}}"))) (pegs "}}}")]}
-          i "a}}b}}}"]
-        (when (not= '{:S [(\a \} \} \b) [\} \} \}]]} (pegasus :S g (gen-ps i)))
-            (throw (Error. "Failed Vectors are not resetting the pos."))))
+    (vectors-reset-pos)
+    (collapse-lpegs)
+    (collapse-keywords)
+    (collapse-pegs)
     )
 
-
-; TODO
-;
-; When processing the elements of a vector - the keyword needs to return to whatever it was each time an element is processed...
-;

@@ -70,5 +70,48 @@ The grammar for Amotoen grammars is:
         :ValidKeywordChar (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!_?-")
     }
 
-I'll be adding more documentation on writing grammars soon...
+<h2>Recent Improvements</h2>
+
+You can now supply a 'custom collapse' function to elements like '\*.
+Since the switch to a more character-based process, there have been annoying structures that 
+    represent little other than a set of characters that could better serve reduced to a string.
+
+As an example:
+ - Some function named 'custom-collapse' set to
+    #(apply str %)
+ - Some grammar 'g' set to
+    {:S [(list custom-collapse (pegs "abcabc"))]}
+ - Some input 'i' set to 
+    "abcabc"
+ - An invocation like...
+    (pegasus :S g (gen-ps i))
+ - ... should return...
+    {:S ["abcabc"]}
+
+Without supplying a custom collapse function:
+ - Some grammar 'g' set to
+    {:S (pegs "abcabc")}
+ - Other things alike, the result should be
+    {:S [\a \b \c \a \b \c]}
+
+Another example:
+ - Some function named 'custom-collapse' set to
+    #(apply str %)
+ - Some grammar 'g' set to
+    {:S [(list custom-collapse '* (lpegs '| "abc"))]}
+ - Some input 'i' set to 
+    "aabbcc"
+ - An invocation like...
+    (pegasus :S g (gen-ps i))
+ - ... should return...
+    {:S ["aabbcc"]}
+
+Without supplying a custom collapse function:
+ - Some grammar 'g' set to
+    {:S [(list '* (lpegs '| "abc"))]}
+ - Other things alike, the result should be
+    {:S [(\a \a \b \b \c \c)]}
+
+
+
 
