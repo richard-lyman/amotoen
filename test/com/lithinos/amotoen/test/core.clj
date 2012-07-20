@@ -81,7 +81,10 @@ a")))))
 ;(println "Single run" (self-check))
 ;(println "Dump" (time (self-ast)))
 ;(println "10 runs") (time (doall (take 10 (repeatedly #(self-check)))))
-(println "40 runs") (time (doall (take 40 (repeatedly #(self-check)))))
+(println "100 runs") (time (doall (take 100 (repeatedly #(self-check)))))
+(println "100 runs") (time (doall (take 100 (repeatedly #(self-check)))))
+(println "100 runs") (time (doall (take 100 (repeatedly #(self-check)))))
+(println "100 runs") (time (doall (take 100 (repeatedly #(self-check)))))
 
 ;(println "start")
 ;(let [i (ref 0) j (ref 0)]

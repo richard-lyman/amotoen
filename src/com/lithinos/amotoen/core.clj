@@ -57,8 +57,8 @@
                                 0
                                 60)
                             indent-string)))
-                (in [t] (dosync (alter indent inc)))
-                (de [t] (dosync (alter indent dec)))
+                (in [t] #_(dosync (alter indent inc)))
+                (de [t] #_(dosync (alter indent dec)))
                 (gp [t] @j)
                 (sp [t k] (dosync (ref-set j k)))
                 (clone [t] (gen-ps s @j))
@@ -138,12 +138,12 @@
 
 (defn- try-char [n w]
     (if (= n (c w))
-        (do
+        ;(do
             #_(debug w (str "MATCH: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
-            (m w))
-        (do
+            (m w);)
+        ;(do
             #_(debug w (str "FAIL: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
-            nil)))
+            nil));)
 
 (defn- peg-vec [n g w]
     (let [p (gp w)]
@@ -186,9 +186,10 @@
     (p w "c:" n)
     (dosync (ref-set *debug* false)))
 
+; If the rule and current position pair have already been seen...
 (defn pegasus [n g w]
     (in w)
-    (when (keyword? n) (dosync (ref-set *currentK* n)))
+    #_(when (keyword? n) (dosync (ref-set *currentK* n)))
     (let [result (cond
                     (keyword? n)(do (p w "k:" n)
                                     (when (nil? (n g)) (throw (Error. (str "Keyword '" n "' does not exist in grammar"))))
@@ -200,7 +201,7 @@
                     (list? n)   (do #_(p w "l:" n) (typed-list n g w))
                     (char? n)   (do #_(p w "c:" n) (try-char n w))
                     true        (throw (Error. (str "Unknown type: " n))))]
-        (when (keyword? n) (dosync (ref-set *currentK* n)))
+        #_(when (keyword? n) (dosync (ref-set *currentK* n)))
         (de w)
         result))
 
