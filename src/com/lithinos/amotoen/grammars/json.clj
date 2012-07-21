@@ -6,42 +6,50 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.grammars.json)
+(ns com.lithinos.amotoen.grammars.json
+  (:use [com.lithinos.amotoen.core]))
+
+(defn json-control-character [g w]
+    (let [s #{  \u0000 \u0001 \u0002 \u0003 \u0004 \u0005 \u0006 \u0007 \u0008 \u0009 \u000A \u000B \u000C \u000D \u000E \u000F
+                \u0010 \u0011 \u0012 \u0013 \u0014 \u0015 \u0016 \u0017 \u0018 \u0019 \u001A \u001B \u001C \u001D \u001E \u001F}]
+        (if (contains? s (c w))
+            (m w)
+            nil)))
 
 (def grammar {
-    :Start                  :JSONRoot
-    :_*                     #"^[\n\r\t ]*"
-    :JSONRoot               [ :_* '(* :Value) :_* :$]
-    :Value                  '(| :JSONString :JSONNumber :JSONObject :Array "true" "false" "null")
+    :_*                     '(* (| \newline \return \tab \space))
+    :JSONText               [:_* '(| :JSONObject :Array) :_* :$]
+    :Value                  (list '| :JSONString :JSONObject :Array (pegs "true") (pegs "false") (pegs "null") :JSONNumber)
 ; Objects
     :JSONObject             '(| :EmptyObject :ContainingObject)
-        :EmptyObject        ["{" :_* "}"]
-        :ContainingObject   ["{" :_* :Members :_* "}"]
-    :Members                '(| [:Pair :_* "," :_* :Members] :Pair)
-    :Pair                   [:JSONString :_* ":" :_* :Value]
+        :EmptyObject        [\{ :_* \}]
+        :ContainingObject   [\{ :_* :Members :_* \}]
+    :Members                '(| [:Pair :_* \, :_* :Members] :Pair) ; Nests the structure significantly
+    :Pair                   [:JSONString :_* \: :_* :Value]
 ; Arrays
     :Array                  '(| :EmptyArray :ContainingArray)
-        :EmptyArray         ["[" :_* "]"]
-        :ContainingArray    ["[" :_* :Elements :_* "]"]
-    :Elements               '(| [:Value :_* "," :_* :Elements] :Value)
+        :EmptyArray         [\[ :_* \]]
+        :ContainingArray    [\[ :_* :Elements :_* \]]
+    :Elements               '(| [:Value :_* \, :_* :Elements] :Value) ; Nests the structure significantly
 ; Strings
     :JSONString             '(| :EmptyString :ContainingString)
-        :EmptyString        ["\"" "\""]
-        :ContainingString   ["\"" :Chars "\""]
-    :Chars                  '(+ [(! :ControlCharacter) :Char])
-    :ControlCharacter       #"^[\u0000-\u001F]"
-    :Char                   '(| :EscapedChar [(! "\"") :NonEscapedChar])
-        :EscapedChar        ["\\" '(|   "\"" "\\" "/" "b" "f" "n" "r" "t" :Unicode)]
-            :Unicode        ["u" :HexDigit :HexDigit :HexDigit :HexDigit]
-            :HexDigit       #"^[0-9A-Fa-f]"
-        :NonEscapedChar     #"^."    ; This is OK since the only way it's used is with appropriate guards.
+        :EmptyString        [\" \"]
+        :ContainingString   [\" :Chars \"]
+    :Chars                  [:GuardedChar '(* :GuardedChar)]
+        :GuardedChar        ['(! :ControlCharacter) :Char]
+    :ControlCharacter       (list 'a json-control-character)
+    :Char                   '(| :EscapedChar [(! \") :NonEscapedChar])
+        :EscapedChar        [\\ '(|   \" \\ \/ \b \f \n \r \t :Unicode)]
+            :Unicode        [\u :HexDigit :HexDigit :HexDigit :HexDigit]
+            :HexDigit       (lpegs '| "0123456789ABCDEFabcdef")
+        :NonEscapedChar     :. ; This is OK since the only way it's used is with appropriate guards.
 ; Numbers
     :JSONNumber             '(| [:Int :Frac :Exp] [:Int :Exp] [:Int :Frac] :Int)
-        :Int                '(| ["-" :Digit1-9 :Digits] ["-" :Digit] [:Digit1-9 :Digits] :Digit)
-        :Frac               ["." :Digits]
+        :Int                '(| [\- :Digit1-9 :Digits] [\- :Digit] [:Digit1-9 :Digits] :Digit)
+        :Frac               [\. :Digits]
         :Exp                [:ExpLeader :Digits]
-            :Digit          #"^[0-9]"
-            :Digit1-9       #"^[1-9]"
-            :Digits         #"^[0-9]+"
-            :ExpLeader      [#"^[eE]" #"^[+-]*"]
+            :Digit          (lpegs '| "0123456789")
+            :Digit1-9       (lpegs '| "123456789")
+            :Digits         [:Digit '(* :Digits)]
+            :ExpLeader      ['(| \e \E) '(* (| \+ \-))]
 })

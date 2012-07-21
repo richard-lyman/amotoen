@@ -6,146 +6,113 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.core)
+(ns com.lithinos.amotoen.core
+    (:use [clojure.set]))
 
 ; s - input string
 ; w - input wrapper
 ; g - given grammar
 ; r - result to return
-; n - next character in input
+; n - usually a rule or some part of a rule in a grammar
 
 (declare pegasus)
 
-(def ^:dynamic *currentK* (ref nil))
-
-(defprotocol IPosition
-    (psdebug    [t]     "Some form of helpful debug info")
-    (in         [t]     "Indent - for debugging")
-    (de         [t]     "Dedent - for debugging")
-    (clone      [t]     "")
-    (gp         [t]     "Get pos") ; E.V.I.L. ... maybe
-    (sp         [t j]   "Set pos") ; E.V.I.L. ... maybe
+(defprotocol IAmotoen
+    "Currently oriented around strings and characters, but could easily be adapted for other approaches."
+    (gp         [t]     "Get pos")
+    (sp         [t j]   "Set pos")
     (end        [t]     "End of input")
-    (m          [t]     "Returns the 'c' then (inc pos)")
-    (c          [t]     "The character at pos"))
+    (c          [t]     "The character at pos")
+    (m          [t]     "Returns the 'c' then (inc pos)"))
 
-(defn gen-ps ; 'ps' is for a 'p'eggable 's'tring
-    ([#^String s] (gen-ps s 0))
+(defn wrap-string
+    "Reifies IAmotoen around a string 's', possibly at a given starting point 'j'.
+     The function 'charAt' is the mechanism to walk through the string."
+    ([#^String s] (wrap-string s 0))
     ([#^String s j] ; 'j' is where we currently are in the input... 'i' was skipped since it was too close to 'i'nput
-        (let [j (ref j)
-              indent (ref 0)]
-            (reify IPosition
-                (psdebug [t]
-                    (let [indent-string (apply str (take @indent (repeat "  ")))
-                          padding (apply str (take 60 (repeat " ")))
-                          before_j  (str "'" (pr-str (try
-                                                        (subs s
-                                                            (max 0 (- @j 30))
-                                                            (max 0 @j))
-                                                        (catch Exception e ""))) "'")
-                          at_j      (str " " (pr-str (c t)) " ")
-                          after_j   (str "'" (pr-str (try
-                                                        (subs s
-                                                            (inc @j)
-                                                            (min (+ @j 30) (count s)))
-                                                        (catch Exception e ""))) "'")]
-                        (str (subs
-                                (str (if (< @j 0)
-                                        (str "<-" (subs s 0 20))
-                                        (str before_j at_j after_j))
-                                    padding)
-                                0
-                                60)
-                            indent-string)))
-                (in [t] #_(dosync (alter indent inc)))
-                (de [t] #_(dosync (alter indent dec)))
-                (gp [t] @j)
-                (sp [t k] (dosync (ref-set j k)))
-                (clone [t] (gen-ps s @j))
-                (end [t] (= @j (count s)))
-                (m [t] (let [r (c t)] (dosync (alter j inc)) r))
-                (c [t] (try (.charAt s @j) (catch Exception e nil)))))))
+        (let [j (ref j)]
+            (reify IAmotoen
+                (gp     [t]     @j)
+                (sp     [t k]   (dosync (ref-set j k)))
+                (end    [t]     (= @j (count s)))
+                (c      [t]     (try (.charAt s @j) (catch Exception e nil)))
+                (m      [t]     (let [r (c t)]
+                                    (when (nil? r) (throw (Exception. "Consuming nil")))
+                                    (dosync (alter j inc))
+                                    r))))))
 
-(defn lpegs [t s] (reverse (into '() (cons t (seq s))))) ; This doesn't need to be fast, but shouldn't the following work? (list (cons t (seq s)))
-(defn pegs [s] (vec (seq s)))
+(defn lpegs
+    "Produces a rule that allows any character in the string 's' as a valid match."
+    [t s] (reverse (into '() (cons t (seq s)))))
 
-(def ^:dynamic *debug* (ref false))
-(defn- debug [w & args]
-    (when @*debug*
-        (print (psdebug w))
-        (print @*currentK* " ")
-        (apply println args)
-        (flush)))
+(defn pegs
+    "Produces a rule that consumes each character in the string 's'."
+    [s] (vec (seq s)))
 
-(def #^{:private true} grammar-grammar {
+(def #^{:private true :doc "Starts at :Grammar."} grammar-grammar {
     :_*             '(* :Whitespace)
     :_              [:Whitespace '(* :Whitespace)]
     :Grammar        [\{ :_* :Rule '(* [:_ :Rule]) :_* \}]
     :Rule           [:Keyword :_ :Body]
-    :Keyword        [\: :AmotoenSymbol]
-    :Body           '(| :Keyword :Char :Grouping :AnyNot :AwareFunction :Function)
+    :Keyword        [\: '(| :AmotoenSymbol :ProvidedSymbol)]
+    :ProvidedSymbol '(| :EndOfInput :AcceptAnything)
+    :EndOfInput     \$ ; If the Keyword ':$' is encountered, the wrapped input should be at the end
+    :AcceptAnything \. ; If the Keyword ':.' is encountered, any character is accepted
+    :Body           '(| :Keyword :Char :Grouping :NotPredicate :AnyNot :AwareFunction :Function)
     :Grouping       '(| :Sequence :Either :ZeroOrMore)
-    :Sequence       [\[                 :_* :Body '(* [:_* :Body])  :_* \]]
-    :Either         [\( \|              :_  :Body '(* [:_* :Body])  :_* \)]
-    :ZeroOrMore     [\( \*              :_  :Body                   :_* \)]
-    :AnyNot         [\( \%              :_  :Body                   :_* \)]
-    :AwareFunction  [\( \a :_ :Symbol   :_  :Body                   :_* \)]
-    :Function       [\( \f :_ :Symbol   :_  :Body                   :_* \)]
-    :Whitespace                 '(| \space \newline \tab \,)
-    :Char                       [\\ (list '| (pegs "tab") (pegs "space") (pegs "newline") '(% \space))]
-    :Symbol                     '(| \/ :AmotoenSymbol)
+    :Sequence       [\[                     :_* :Body '(* [:_* :Body])  :_* \]]
+    :Either         [\( \|                  :_  :Body '(* [:_* :Body])  :_* \)]
+    :NotPredicate   [\( \!                  :_  :Body                   :_* \)]
+    :ZeroOrMore     [\( \*                  :_  :Body                   :_* \)]
+    :AnyNot         [\( \%                  :_  :Body                   :_* \)]
+    :AwareFunction  [\( \a :_ :CljReaderFn                              :_* \)]
+    :Function       [\( \f :_ :CljReaderFn  :_  :Body                   :_* \)]
+    :CljReaderFn    [\# \< '(% \>) '(* (% \>)) \>]
+    :Whitespace                 '(| \space \newline \return \tab \,)
+    :Char                       [\\ (list '| (pegs "tab") (pegs "space") (pegs "newline") (pegs "return") '(% \space))]
     :AmotoenSymbol              [:NonNumericCharacter '(* :AlphanumericCharactersPlus)] ; _Not_ the same as a Clojure Symbol
     :NonNumericCharacter        (list '% (lpegs '| "0123456789"))
     :AlphanumericCharactersPlus (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!-_?.")
 })
 
-(defn- either [n g w]
-    #_(let [original (gp w)]
-        (loop [remaining (rest n)]
-            (if (nil? (seq remaining))
-                nil
-                (do
-                    (sp w original)
-                    (let [result (pegasus (first remaining) g w)]
-                        (if (nil? result)
-                            (recur (rest remaining))
-                            result))))))
-    (let [original (gp w)] ; Why is this still the fastest?
+(defn- either
+    "Returns the result of the first element in 'n' to successfully process something from 'w'."
+    [n g w]
+    (let [original (gp w)]
         (first
             (keep
                 #(do
                     (sp w original)
                     (pegasus % g w))
-                (rest n))))
-    #_(let [original (gp w)]
-        #_(println "Processing either:" (first n) (rest n))
-        (first
-            (filter #(do #_(println "checking for nil:" %) (not (nil? %)))
-                (doall
-                    (pmap
-                        #(do #_(println "Running with:" %) (pegasus % g (clone w)))
-                        (rest n))))))
-)
+                (rest n)))))
 
-(defn- any-not [b g w]
-    (let [c (c w) p (gp w)]
-        (if (pegasus b g w)
-            (do (sp w p) nil) ; If we succeed, then we fail - that's the point of AnyNot... and rollback
-            (do
-                #_(debug w "AnyNot MATCH:" (pr-str b) c)
-                (m w)
-                c)))); If we fail, then we accept the current char
+(defn- any-not
+    "See comments in code. Success if failure, failure if success."
+    [b g w]
+    (let [p (gp w)]
+        (if (or (pegasus b g w) (end w))
+            (do (sp w p) nil) ; If we succeed (or are at the end), then we fail - that's the point of AnyNot... and rollback
+            (m w)))) ; If we fail and aren't at the end, then we accept the current char
+
+(defn debug
+    "Very very inefficient and useful in some cases.
+     Prints out 'i' number of characters from 'w' followed by 'n', 
+     and then resets the position in 'w' as if nothing had been consumed."
+    [n w i]
+    (let [p (gp w)]
+        (println ">> " (pr-str (apply str (doall (take i (repeatedly #(try (m w) (catch Exception e ""))))))) ":" n)
+        (sp w p)))
 
 (defn- try-char [n w]
+    ;(debug n w 25)
     (if (= n (c w))
-        ;(do
-            #_(debug w (str "MATCH: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
-            (m w);)
-        ;(do
-            #_(debug w (str "FAIL: '" (pr-str n) "' with '" (pr-str (c w)) "'"))
-            nil));)
+        (m w)
+        nil))
 
-(defn- peg-vec [n g w]
+(defn- peg-vec
+    "Returns the result of calling pegasus on each element in 'n'.
+     If any call fails then nil is returned as the single result of all calls."
+    [n g w]
     (let [p (gp w)]
         (loop [remaining    n
                result       []]
@@ -159,71 +126,124 @@
                             (sp w p)
                             nil)))))))
 
-(defn- typed-list [n g w]
+(defn- zero-or-more
+    "Continues to collect the result of calling (pegasus b g w) until that call returns nil.
+     Returns the collected results. If nothing was consumed from 'w', then nil is returned."
+    [b g w]
+    (let [lastp (ref (gp w))]
+        (doall
+            (take-while
+                #(if (= (gp w) @lastp)
+                    nil
+                    (if (keyword? b) (b %) %))
+                (repeatedly #(do    (dosync (ref-set lastp (gp w)))
+                                    (pegasus b g w)))))))
+
+(defn- not-predicate
+    "Returns true if (pegasus b g w) doesn't succeed, nil otherwise."
+    [b g w]
+    (let [p (gp w)
+          r (nil? (pegasus b g w))]
+        (if (or r (end w))
+            (do (sp w p) true)
+            nil)))
+
+(defn- list-of-one-element
+    "Check to find lists containing only a single element.
+     Significantly faster than 'count'."
+    [r]
+    (and
+        (seq? r)
+        (nil? (seq (rest r)))
+        (not (nil? (first r)))))
+
+(defn- typed-list
+    "Similar in purpose and result as pegasus, with the expectation that n is a 'Typed-List' in the grammar."
+    [n g w]
     (let [t (first n)
           b (second n)
-          result (cond  (= t '|)    (let [temp (either n g w)]
-                                        #_(debug w "Either returning:" (pr-str temp))
-                                        temp)
+          result (cond  (= t '|)    (either n g w)
                         (= t '%)    (any-not b g w)
-                        (= t '*)    (doall (take-while #(if (keyword? b)
-                                                            (b %)
-                                                            %)
-                                                        (repeatedly #(pegasus b g w))))
-                        (= t 'a)    (b g w (pegasus (first (rest (rest n))) g w))
-                        (= t 'f)    (b     (pegasus (first (rest (rest n))) g w)))]
-        (if (and
-                (seq? result)
-                (nil? (seq (rest result)))
-                (not (nil? (first result)))
-                )
+                        (= t '*)    (zero-or-more b g w)
+                        (= t '!)    (not-predicate b g w)
+                        (= t 'a)    (b g w)
+                        (= t 'f)    (b (pegasus (first (rest (rest n))) g w)))]
+        (if (list-of-one-element result)
             (first result)
             result)))
 
-(defn- p [w s n] #_(debug w s (pr-str n)))
-(defn- fp [w s n]
-    (dosync (ref-set *debug* true))
-    (p w "c:" n)
-    (dosync (ref-set *debug* false)))
+(defn- peg-keyword
+    "Similar in purpose and result as pegasus, with the expectation that n is a Keyword in the grammar."
+    [n g w]
+    (cond
+        (= n :$)    (if (end w) :$ (throw (Error. "Declaration of end without end")))
+        (= n :.)    (if (not (end w)) (m w) (throw (Error. "Attempt to consume any character at end")))
+        true        (do
+                        (when (nil? (n g)) (throw (Error. (str "Keyword '" n "' does not exist in grammar"))))
+                        (let [temp (pegasus (n g) g w)]
+                            (if temp
+                                {n temp}
+                                nil)))))
 
-; If the rule and current position pair have already been seen...
-(defn pegasus [n g w]
-    (in w)
-    #_(when (keyword? n) (dosync (ref-set *currentK* n)))
-    (let [result (cond
-                    (keyword? n)(do (p w "k:" n)
-                                    (when (nil? (n g)) (throw (Error. (str "Keyword '" n "' does not exist in grammar"))))
-                                    (let [temp (pegasus (n g) g w)]
-                                        (if temp
-                                            {n temp}
-                                            nil)))
-                    (vector? n) (do #_(p w "v:" n) (peg-vec n g w))
-                    (list? n)   (do #_(p w "l:" n) (typed-list n g w))
-                    (char? n)   (do #_(p w "c:" n) (try-char n w))
-                    true        (throw (Error. (str "Unknown type: " n))))]
-        #_(when (keyword? n) (dosync (ref-set *currentK* n)))
-        (de w)
-        result))
+(defn pegasus
+    "Returns the AST resulting from parsing the wrapped input 'w'
+     given a grammar definition 'g' and starting at rule 'n' in 'g'."
+    [n g w]
+    ;(when (keyword? n) (debug n w 25))
+    (cond
+        (keyword? n)(peg-keyword n g w)
+        (vector? n) (peg-vec n g w)
+        (list? n)   (typed-list n g w)
+        (char? n)   (try-char n w)
+        true        (throw (Error. (str "Unknown type: " n)))))
+
+(defn with-fns
+    "Simplifies attaching 'post-processing' functions to Non-Terminals in the grammar.
+     Keys in 'fn-map' should match keys in the grammar 'g'.
+     Values in 'fn-map' should be functions accepting the result of having 
+     parsed some input according to the related value in 'g'."
+    ([g fn-map] (with-fns g fn-map 'f))
+    ([g fn-map fn-type]
+        (merge-with (fn [from-g from-fn-map]
+                    (list fn-type from-fn-map from-g))
+                g
+                fn-map)))
+
+(defn post-process
+    "Similar to with-fns. Other parameters match pegasus.
+     The final result is assumed to be the value of the root map that pegasus would have returned."
+    [n g w fn-map]
+    (n (pegasus n (with-fns g fn-map) w)))
 
 (defn validate
-    ([g] (validate g false))
-    ([g d]
-        (dosync (ref-set *debug* d))
-        (let [w (gen-ps (pr-str g))
-              temp (pegasus :Grammar grammar-grammar w)
-              r (or (nil? temp)
-                    (not (end w)))]
-            (dosync (ref-set *debug* false))
-            [r, temp])))
+    "Validate can help identify problems in grammars. 
+     Using grammar-grammar as the grammar for valid grammars, 
+     it will return nil if the given grammar 'g' is not valid."
+    [g]
+    (let [w     (wrap-string (pr-str g))
+          ast   (pegasus :Grammar grammar-grammar w)
+          r     (and    (not (nil? ast))
+                        (end w))]
+        [r, ast]))
 
-(defn self-check [] (validate grammar-grammar))
-(defn self-ast []
-    (dosync (ref-set *debug* false))
-    (let [r (pr-str (pegasus
-                        :Grammar
-                        grammar-grammar
-                        (gen-ps (pr-str grammar-grammar))))]
-        (dosync (ref-set *debug* false))
-        r)
-    )
+(defn fastest-theoretical
+    "Finding a lower-bound on any optimizations for speed starts
+     by simply reading each character in the string to be parsed 'b'.
+     The function 'end' is the conditional with 'm' consuming."
+    [s]
+    (let [w (wrap-string s)]
+        (loop [continue (not (end w))]
+            (when continue
+                (m w)
+                (recur (not (end w)))))))
+
+(defn self-check-fastest
+    "This returns the fastest time to read each character of grammar-grammar"
+    [] (fastest-theoretical (pr-str grammar-grammar)))
+
+(defn self-check
+    "This ensures that grammar-grammar is a valid grammar.
+     It attempts to parse itself. While not every part of valid
+     grammars is used in grammar-grammar, it's a nice sanity check."
+    [] (validate grammar-grammar))
 

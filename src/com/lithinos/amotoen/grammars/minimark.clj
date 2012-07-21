@@ -6,53 +6,60 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns com.lithinos.amotoen.minimark)
+(ns com.lithinos.amotoen.grammars.minimark
+    (:use [com.lithinos.amotoen.core]))
+
+(defn delimited
+    ([m] (delimited m m))
+    ([s e] [s [(list '% e) (list '* (list '% e))] e]))
 
 (def grammar {
-; Start
-    :Start                  :Content
-; Whitespace
-    :N                      "\n"
-    :_                      " "
-    :_*                     #"^\s*"
-; Odds-n-Ends
-    :Any-Char               '(| :Empty-Line :Escaped-Char #"(?s)^.")
-    :Empty-Line             [:N :N]
-    :Escaped-Char           ["!" #"^[A-Z!\[=]"]
-    :Alphanumeric           #"^[A-Za-z0-9]" ; No markup ever starts with an alphanumeric character
 ;Bulk
-    :Content                ['(+ (| #"^\s+" :Alphanumeric :Markup #"^.")) :$]
+    :Content                [:Element '(* :Element) :$]
+    :Element                '(| :_+ :Alphanumeric :Markup :.)
     :Markup                 '(| :HRule :MDash :List :SS :U :H4 :H3 :H2 :H1 :B :I :Href :Pre)
-    :Markup-Guard           '(! (| :HRule :MDash :List-Marker "^" "__" "====" "===" "==" "=" "'''" "''" "[" "{{{"))
-    :Non-Markup             [:Markup-Guard '(| :Any-Char)]
-    :NM+                    '(+ :Non-Markup)
+    :Markup-Guard           (list '! (list '| :HRule :MDash :Unordered-List-Marker :Ordered-List-Marker
+                                    \^ (pegs "__") (pegs "====") (pegs "===") (pegs "==") \= (pegs "'''") (pegs "''") \[ (pegs "{{{")))
+    :Non-Markup             [:Markup-Guard :Any-Char]
+    :NM+                    [:Non-Markup '(* :Non-Markup)]
+; Whitespace
+    :N                      \newline
+    :_                      \space
+    :_*                     '(* :_)
+    :_+                     [:_ '(* :_)]
+; Odds-n-Ends
+    :Any-Char               '(| :Empty-Line :Escaped-Char :.)
+    :Empty-Line             [:N :N]
+    :Escaped-Char           [\! (pegs "ABCDEFGHIJKLMNOPQRSTUVWXYZ!\\[=]")]
+    :Alphanumeric           (pegs "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789") ; No markup ever starts with an alphanumeric character
 ;Links
     :Href                   '(| :Href-Straight :Href-Explained)
-        :Href-Straight      ["[" :Href-Body "]"]
-        :Href-Explained     ["[" :Href-Text :_ :Href-Body "]"]
-            :Href-Body      #"^[^] ]+"
-            :Href-Text      #"^[^ ]+"
+        :Href-Straight      [\[ :Href-Body \]]
+        :Href-Explained     [\[ :Href-Text :_ :Href-Body \]]
+            :Href-Body      [:Href-Body-Part '(* :Href-Body-Part)]
+            :Href-Body-Part '(% (| \] \space))
+            :Href-Text      ['(% \space) '(* (% \space))]
 ;Lists
-    :List-Marker            '(| "-- " "-. ")
+    :Unordered-List-Marker  (pegs "-- ")
+    :Ordered-List-Marker    (pegs "-. ")
     :List                   '(| :Ordered-List :Unordered-List)
-    :Ordered-List           '(+ [:_* "-. " :List-Body])
-    :Unordered-List         '(+ [:_* "-- " :List-Body])
-        :List-Body          '(+ :List-Chunk)
-            :List-Chunk     '(| :SS :U :B :I :Href :Pre #"^.")
+    :Ordered-List           [:_* :Ordered-List-Marker :List-Body '(* [:_* :Ordered-List-Marker :List-Body])]
+    :Unordered-List         [:_* :Unordered-List-Marker :List-Body '(* [:_* :Unordered-List-Marker :List-Body])]
+        :List-Body          [:List-Chunk '(* :List-Chunk)]
+            :List-Chunk     '(| :SS :U :B :I :Href :Pre :.)
 ;Superscript
-    :SS                     ["^" :SS-Body "^"]
-        :SS-Body            '(+ [(! "^") :SS-Chunk])
-        :SS-Chunk           '(| :U :B :I :Href #"^.")
+    :SS                     [\^ :SS-Body \^]
+        :SS-Body            ['(! \^) :SS-Chunk '(* [(! \^) :SS-Chunk])]
+        :SS-Chunk           '(| :U :B :I :Href :.)
 ;Pre
-    :Pre                    ["{{{" :Pre-Markup-Body "}}}"]
-        :Pre-Markup-Body    '(+ [(! "}}}") :Any-Char])
+    :Pre                    (delimited (pegs "{{{") (pegs "}}}"))
 ;Remaining
-    :H1                     ["="    #"^[^=]+"                   "="]
-    :H2                     ["=="   '(+ [(! "==")    #"^."])    "=="]
-    :H3                     ["==="  '(+ [(! "===")   #"^."])    "==="]
-    :H4                     ["====" '(+ [(! "====")  #"^."])    "===="]
-    :B                      ["'''"  '(+ [(! "'''")   #"^."])    "'''"]
-    :I                      ["''"   '(+ [(! "''")    #"^."])    "''"]
-    :U                      ["__"   '(+ [(! "__")    #"^."])    "__"]
-    :HRule                  "----"
-    :MDash                  "---"})
+    :H1                     (delimited \=)
+    :H2                     (delimited (pegs "=="))
+    :H3                     (delimited (pegs "==="))
+    :H4                     (delimited (pegs "===="))
+    :B                      (delimited (pegs "'''"))
+    :I                      (delimited (pegs "''"))
+    :U                      (delimited (pegs "__"))
+    :HRule                  (pegs "----")
+    :MDash                  (pegs "---")})

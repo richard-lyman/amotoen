@@ -1,4 +1,4 @@
-(defproject com.lithinos/amotoen "0.1.0-SNAPSHOT"
+(defproject com.lithinos/amotoen "0.2.0-SNAPSHOT"
     :description "Amotoen is a Clojure library that supports PEG style definitions of grammars that can produce parsers."
     :url "http://www.lithinos.com/amotoen"
     :license {:name "EPL-v1.0" :distribution :repo :comments "same as Clojure" :url "http://www.eclipse.org/legal/epl-v10.html"}
