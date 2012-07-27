@@ -71,7 +71,7 @@ Using a grammar like the CSV one above can produce one of two types of outputs.
 The more common output would be for a provider of a grammar to process the intermediate format and produce some kind of more relevant one,
 The package com.lithinos.amotoen.grammars.csv provides a 'to-clj' function that produces a Clojure data structure representing the CSV file.
 An example of this format using the 'to-clj' function and an input of just "a,b,c\nx,y,z" is as follows:
-    [["a" "b" "c"] ["x" "y" "z"]]
+    ```[["a" "b" "c"] ["x" "y" "z"]]```
 
 The less common output is an AST, or Abstract Syntax Tree.
 You **shouldn't have to care about this first kind of output** unless you want to, since it's meant as an intermediate format.
@@ -100,7 +100,7 @@ The first argument to pegasus is the key for the root rule in the grammar, the r
 The second argument is the grammar definition.
 The third argument is something that fulfils the IAmotoen protocol, and the provided 'wrap-string' function will do just that for Strings.
 Putting all these pieces together with the input from above of "a" you get:
-    (pegasus :Document grammar (wrap-string "a"))
+    ```(pegasus :Document grammar (wrap-string "a"))```
 
 Much more information can be found in the tests for CSV, the com.lithinos.amotoen.test.csv package.
 
@@ -192,41 +192,41 @@ The grammar for Amotoen grammars is:
 
 You can now supply a 'custom collapse' function to elements like '\*.
 Since the switch to a more character-based process, there have been annoying structures that 
-    represent little other than a set of characters that could better serve reduced to a string.
+represent little other than a set of characters that could better serve reduced to a string.
 
 As an example:
  - Some function named 'custom-collapse' set to
-    '''#(apply str %)'''
+    ```#(apply str %)```
  - Some grammar 'g' set to
-    '''{:S [(list 'f custom-collapse (pegs "abcabc"))]}'''
+    ```{:S [(list 'f custom-collapse (pegs "abcabc"))]}```
  - Some input 'i' set to 
-    '''"abcabc"'''
+    ```"abcabc"```
  - An invocation like...
-    '''(pegasus :S g (gen-ps i))'''
+    ```(pegasus :S g (gen-ps i))```
  - ... should return...
-    '''{:S ["abcabc"]}'''
+    ```{:S ["abcabc"]}```
 
 Without supplying a custom collapse function:
  - Some grammar 'g' set to
-    '''{:S (pegs "abcabc")}'''
+    ```{:S (pegs "abcabc")}```
  - Other things alike, the result should be
-    '''{:S [\a \b \c \a \b \c]}'''
+    ```{:S [\a \b \c \a \b \c]}```
 
 Another example:
  - Some function named 'custom-collapse' set to
-    '''#(apply str %)'''
+    ```#(apply str %)```
  - Some grammar 'g' set to
-    '''{:S [(list 'f custom-collapse '(* (lpegs '| "abc")))]}'''
+    ```{:S [(list 'f custom-collapse '(* (lpegs '| "abc")))]}```
  - Some input 'i' set to 
-    '''"aabbcc"'''
+    ```"aabbcc"```
  - An invocation like...
-    '''(pegasus :S g (gen-ps i))'''
+    ```(pegasus :S g (gen-ps i))```
  - ... should return...
-    '''{:S ["aabbcc"]}'''
+    ```{:S ["aabbcc"]}```
 
 Without supplying a custom collapse function:
  - Some grammar 'g' set to
-    '''{:S [(list '* (lpegs '| "abc"))]}'''
+    ```{:S [(list '* (lpegs '| "abc"))]}```
  - Other things alike, the result should be
-    '''{:S [(\a \a \b \b \c \c)]}'''
+    ```{:S [(\a \a \b \b \c \c)]}```
 
