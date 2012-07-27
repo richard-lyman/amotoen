@@ -40,7 +40,7 @@ that PEGs, or **P**arsing **E**xpression **G**rammar(s), are best explained by t
 There is a grammar provided in Amotoen for working with CSV files.
 You should not be afraid of reading it or of working with CSV files.
 Let's walk through a basic CSV grammar as provided in the com.lithinos.amotoen.grammars.csv package.
-
+```
 {
     :Document               [:Line '(* :Line) :$]
     :Line                   [:_* :Value '(* [:_* \, :_* :Value]) :_* '(* :EndOfLine)]
@@ -54,7 +54,7 @@ Let's walk through a basic CSV grammar as provided in the com.lithinos.amotoen.g
     :Whitespace             '(| \space \tab)
     :EndOfLine              '(| \newline \return)
 }
-
+```
 The above grammar reads as follows:
  - A Document is a Line followed by zero or more lines and then the end of the input
  - A Line, ignoring the chunks of whitespace, is a Value followed by zero or more pairs of commas and Values and then the end of the line
@@ -76,6 +76,7 @@ An example of this format using the 'to-clj' function and an input of just "a,b,
 The less common output is an AST, or Abstract Syntax Tree.
 You **shouldn't have to care about this first kind of output** unless you want to, since it's meant as an intermediate format.
 An example of this format using the CSV grammar and an input of just "a" is as follows:
+```
 {
     :Document [
         {
@@ -91,7 +92,7 @@ An example of this format using the CSV grammar and an input of just "a" is as f
         :$
     ]
 }
-
+```
 If the more common output is not available, or you'd like to work with an AST, you can generate your own AST.
 The following is only one of several different paths to producing an AST from a grammar and an input.
 One way is to call the Amotoen function 'pegasus' and provide three arguments.
@@ -160,6 +161,7 @@ An 'a' type list has only two elements that matter and they occur in this order:
 <h2>Amotoen Grammar Definition</h2>
 
 The grammar for Amotoen grammars is:
+```
 {
     :_*             '(* :Whitespace)
     :_              [:Whitespace '(* :Whitespace)]
@@ -185,7 +187,7 @@ The grammar for Amotoen grammars is:
     :NonNumericCharacter        (list '% (lpegs '| "0123456789"))
     :AlphanumericCharactersPlus (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!-_?.")
 }
-
+```
 <h2>Recent Improvements</h2>
 
 You can now supply a 'custom collapse' function to elements like '\*.
@@ -194,37 +196,37 @@ Since the switch to a more character-based process, there have been annoying str
 
 As an example:
  - Some function named 'custom-collapse' set to
-    #(apply str %)
+    '''#(apply str %)'''
  - Some grammar 'g' set to
-    {:S [(list 'f custom-collapse (pegs "abcabc"))]}
+    '''{:S [(list 'f custom-collapse (pegs "abcabc"))]}'''
  - Some input 'i' set to 
-    "abcabc"
+    '''"abcabc"'''
  - An invocation like...
-    (pegasus :S g (gen-ps i))
+    '''(pegasus :S g (gen-ps i))'''
  - ... should return...
-    {:S ["abcabc"]}
+    '''{:S ["abcabc"]}'''
 
 Without supplying a custom collapse function:
  - Some grammar 'g' set to
-    {:S (pegs "abcabc")}
+    '''{:S (pegs "abcabc")}'''
  - Other things alike, the result should be
-    {:S [\a \b \c \a \b \c]}
+    '''{:S [\a \b \c \a \b \c]}'''
 
 Another example:
  - Some function named 'custom-collapse' set to
-    #(apply str %)
+    '''#(apply str %)'''
  - Some grammar 'g' set to
-    {:S [(list 'f custom-collapse '(* (lpegs '| "abc")))]}
+    '''{:S [(list 'f custom-collapse '(* (lpegs '| "abc")))]}'''
  - Some input 'i' set to 
-    "aabbcc"
+    '''"aabbcc"'''
  - An invocation like...
-    (pegasus :S g (gen-ps i))
+    '''(pegasus :S g (gen-ps i))'''
  - ... should return...
-    {:S ["aabbcc"]}
+    '''{:S ["aabbcc"]}'''
 
 Without supplying a custom collapse function:
  - Some grammar 'g' set to
-    {:S [(list '* (lpegs '| "abc"))]}
+    '''{:S [(list '* (lpegs '| "abc"))]}'''
  - Other things alike, the result should be
-    {:S [(\a \a \b \b \c \c)]}
+    '''{:S [(\a \a \b \b \c \c)]}'''
 
