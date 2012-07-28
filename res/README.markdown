@@ -9,6 +9,7 @@
 
 <h2>Table of Contents</h2>
 
+*   Quick Use
 *   Basic Definitions
 *   Name and Pronunciation
 *   Introduction to Reading Grammars (or, Don't Be Afraid)
@@ -18,6 +19,26 @@
 *   Redefining Amotoen's Functionality
 *   Amotoen Grammar Definition
 *   Recent Improvements
+
+<h2>Quick Use</h2>
+ 1. `lein new something`
+ 2. `cd something`
+ 3. Add [the Clojars release](https://clojars.org/com.lithinos/amotoen) as a dependency to the new project.clj file (`[com.lithinos/amotoen "0.2.0-SNAPSHOT"]`)
+  - Your dependencies section would then look like this: `:dependencies [[org.clojure/clojure "1.4.0"] [com.lithinos/amotoen "0.2.0-SNAPSHOT"]]`
+ 4. Modify `test/something/core_test.clj` so that it looks like the sample below
+ 5. Run `lein test`
+  - You should see: `[["a" "b" "c"]]`
+ 6. Create your program as normal in the src folder
+
+```
+    (ns something.core-test
+      (:use clojure.test
+            something.core
+            clojure.pprint ; Amotoen doesn't require this, just the sample code below
+            com.lithinos.amotoen.grammars.csv))
+    (deftest use-amotoen
+        (pprint (to-clj "a,b,c")))
+```
 
 <h2>Basic Definitions</h2>
 
@@ -57,8 +78,8 @@ Lists that have an 'a' as the first element will contain an 'Aware Function'.
 Lists that have an 'f' as the first element will contain a simpler 'Function'.
 
 There are also special pre-provided keywords.
-Use of the keyword ```:$``` means that the input should be at the end at that point.
-Use of the keyword ```:.``` means that any character is accepted at that point.
+Use of the keyword `:$` means that the input should be at the end at that point.
+Use of the keyword `:.` means that any character is accepted at that point.
 
 <h2>Introduction to Reading Grammars (or, Don't Be Afraid)</h2>
 
@@ -99,14 +120,14 @@ You should now be able to read the three rules that work with whitespace, the :W
 <h2>Introduction to Using Grammars (or, It's Also Easy)</h2>
 
 Using a grammar like the CSV one above can produce one of two types of outputs.
-The more common output would be for a provider of a grammar to process the intermediate format and produce some kind of more relevant one,
-The package com.lithinos.amotoen.grammars.csv provides a ```to-clj``` function that produces a Clojure data structure representing the CSV file.
-An example of this format using the ```to-clj``` function and an input of just ```a,b,c\nx,y,z``` is as follows:
+The more common output would be for a provider of a grammar to process the intermediate format and produce some kind of more relevant one.
+The package com.lithinos.amotoen.grammars.csv provides a `to-clj` function that produces a Clojure data structure representing the CSV file.
+An example of this format using the `to-clj` function and an input of just `a,b,c\nx,y,z` is as follows:
     ```[["a" "b" "c"] ["x" "y" "z"]]```
 
 The less common output is an AST, or Abstract Syntax Tree.
-You **shouldn't have to care about this first kind of output** unless you want to, since it's meant as an intermediate format.
-An example of this format using the CSV grammar and an input of just ```a``` is as follows:
+You **shouldn't have to care about this less common kind of output** unless you want to, since it's meant as an intermediate format.
+An example of this format using the CSV grammar and an input of just `a` is as follows:
 ```
 {
     :Document [
@@ -130,7 +151,7 @@ One way is to call the Amotoen function 'pegasus' and provide three arguments.
 The first argument to pegasus is the key for the root rule in the grammar, the rule that should be run first.
 The second argument is the grammar definition.
 The third argument is something that fulfils the IAmotoen protocol, and the provided 'wrap-string' function will do just that for Strings.
-Putting all these pieces together with the input from above of ```a``` you get:
+Putting all these pieces together with the input from above of `a` you get:
     ```(pegasus :Document grammar (wrap-string "a"))```
 
 Much more information can be found in the tests for CSV, the com.lithinos.amotoen.test.csv package.
@@ -244,5 +265,4 @@ Without supplying a custom collapse function:
     ```{:S [(list '* (lpegs '| "abc"))]}```
  - Other things alike, the result should be
     ```{:S [(\a \a \b \b \c \c)]}```
-
 

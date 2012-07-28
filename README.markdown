@@ -120,13 +120,13 @@ You should now be able to read the three rules that work with whitespace, the :W
 <h2>Introduction to Using Grammars (or, It's Also Easy)</h2>
 
 Using a grammar like the CSV one above can produce one of two types of outputs.
-The more common output would be for a provider of a grammar to process the intermediate format and produce some kind of more relevant one,
+The more common output would be for a provider of a grammar to process the intermediate format and produce some kind of more relevant one.
 The package com.lithinos.amotoen.grammars.csv provides a `to-clj` function that produces a Clojure data structure representing the CSV file.
 An example of this format using the `to-clj` function and an input of just `a,b,c\nx,y,z` is as follows:
     ```[["a" "b" "c"] ["x" "y" "z"]]```
 
 The less common output is an AST, or Abstract Syntax Tree.
-You **shouldn't have to care about this first kind of output** unless you want to, since it's meant as an intermediate format.
+You **shouldn't have to care about this less common kind of output** unless you want to, since it's meant as an intermediate format.
 An example of this format using the CSV grammar and an input of just `a` is as follows:
 ```
 {
