@@ -25,21 +25,20 @@
  2. `cd something`
  3. Add the Clojars dependency to the new project.clj file (`[com.lithinos/amotoen "0.2.0-SNAPSHOT"]`)
   - Your dependencies section would then look like this: `:dependencies [[org.clojure/clojure "1.4.0"] [com.lithinos/amotoen "0.2.0-SNAPSHOT"]]`
- 4. Modify `test/something/core_test.clj` so that it looks like this:
-```
-(ns something.core-test
-  (:use clojure.test
-        something.core
-        clojure.pprint ; Amotoen doesn't require this, just the sample code below
-        com.lithinos.amotoen.grammars.csv))
-
-(deftest use-amotoen
-    (pprint (to-clj "a,b,c")))
-```
+ 4. Modify `test/something/core_test.clj` so that it looks like the sample below
  5. Run `lein test`
   - You should see: `[["a" "b" "c"]]`
  6. Create your program as normal in the src folder
 
+```
+    (ns something.core-test
+      (:use clojure.test
+            something.core
+            clojure.pprint ; Amotoen doesn't require this, just the sample code below
+            com.lithinos.amotoen.grammars.csv))
+    (deftest use-amotoen
+        (pprint (to-clj "a,b,c")))
+```
 
 <h2>Basic Definitions</h2>
 
