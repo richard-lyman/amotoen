@@ -23,7 +23,7 @@
 <h2>Quick Use</h2>
  1. `lein new something`
  2. `cd something`
- 3. Add the Clojars dependency to the new project.clj file (`[com.lithinos/amotoen "0.2.0-SNAPSHOT"]`)
+ 3. Add [the Clojars release](https://clojars.org/com.lithinos/amotoen) as a dependency to the new project.clj file (`[com.lithinos/amotoen "0.2.0-SNAPSHOT"]`)
   - Your dependencies section would then look like this: `:dependencies [[org.clojure/clojure "1.4.0"] [com.lithinos/amotoen "0.2.0-SNAPSHOT"]]`
  4. Modify `test/something/core_test.clj` so that it looks like the sample below
  5. Run `lein test`
