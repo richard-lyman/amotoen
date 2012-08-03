@@ -27,18 +27,18 @@
 
 (defn wrap-string
     "Reifies IAmotoen around a string 's', possibly at a given starting point 'j'.
-     The function 'charAt' is the mechanism to walk through the string."
+     The function 'charAt' is part of the mechanism to walk through the string."
     ([#^String s] (wrap-string s 0))
     ([#^String s j] ; 'j' is where we currently are in the input... 'i' was skipped since it was too close to 'i'nput
-        (let [j (ref j)]
+        (let [a (int-array 1 j)]
             (reify IAmotoen
-                (gp     [t]     @j)
-                (sp     [t k]   (dosync (ref-set j k)))
-                (end    [t]     (= @j (count s)))
-                (c      [t]     (try (.charAt s @j) (catch Exception e nil)))
+                (gp     [t]     (aget a 0))
+                (sp     [t k]   (aset-int a 0 k))
+                (end    [t]     (= (aget a 0) (count s)))
+                (c      [t]     (try (.charAt s (aget a 0)) (catch Exception e nil)))
                 (m      [t]     (let [r (c t)]
                                     (when (nil? r) (throw (Exception. "Consuming nil")))
-                                    (dosync (alter j inc))
+                                    (aset-int a 0 (+ 1 (aget a 0)))
                                     r))))))
 
 (defn lpegs
@@ -46,34 +46,35 @@
     [t s] (reverse (into '() (cons t (seq s)))))
 
 (defn pegs
-    "Produces a rule that consumes each character in the string 's'."
+    "Produces a rule that consumes each character in the string 's' in the order given in 's'."
     [s] (vec (seq s)))
 
-(def #^{:private true :doc "Starts at :Grammar."} grammar-grammar {
-    :_*             '(* :Whitespace)
-    :_              [:Whitespace '(* :Whitespace)]
-    :Grammar        [\{ :_* :Rule '(* [:_ :Rule]) :_* \}]
-    :Rule           [:Keyword :_ :Body]
-    :Keyword        [\: '(| :AmotoenSymbol :ProvidedSymbol)]
-    :ProvidedSymbol '(| :EndOfInput :AcceptAnything)
-    :EndOfInput     \$ ; If the Keyword ':$' is encountered, the wrapped input should be at the end
-    :AcceptAnything \. ; If the Keyword ':.' is encountered, any character is accepted
-    :Body           '(| :Keyword :Char :Grouping :NotPredicate :AnyNot :AwareFunction :Function)
-    :Grouping       '(| :Sequence :Either :ZeroOrMore)
-    :Sequence       [\[                     :_* :Body '(* [:_* :Body])  :_* \]]
-    :Either         [\( \|                  :_  :Body '(* [:_* :Body])  :_* \)]
-    :NotPredicate   [\( \!                  :_  :Body                   :_* \)]
-    :ZeroOrMore     [\( \*                  :_  :Body                   :_* \)]
-    :AnyNot         [\( \%                  :_  :Body                   :_* \)]
-    :AwareFunction  [\( \a :_ :CljReaderFn                              :_* \)]
-    :Function       [\( \f :_ :CljReaderFn  :_  :Body                   :_* \)]
-    :CljReaderFn    [\# \< '(% \>) '(* (% \>)) \>]
-    :Whitespace                 '(| \space \newline \return \tab \,)
-    :Char                       [\\ (list '| (pegs "tab") (pegs "space") (pegs "newline") (pegs "return") '(% \space))]
-    :AmotoenSymbol              [:NonNumericCharacter '(* :AlphanumericCharactersPlus)] ; _Not_ the same as a Clojure Symbol
-    :NonNumericCharacter        (list '% (lpegs '| "0123456789"))
-    :AlphanumericCharactersPlus (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!-_?.")
-})
+(def #^{:private true
+        :doc "This grammar is the grammar for Amotoen grammars. It starts at :Grammar."}
+    grammar-grammar {
+        :_*             '(* :Whitespace)
+        :_              [:Whitespace '(* :Whitespace)]
+        :Grammar        [\{ :_* :Rule '(* [:_ :Rule]) :_* \}]
+        :Rule           [:Keyword :_ :Body]
+        :Keyword        [\: '(| :AmotoenSymbol :ProvidedSymbol)]
+        :ProvidedSymbol '(| :EndOfInput :AcceptAnything)
+        :EndOfInput     \$ ; If the Keyword ':$' is encountered, the wrapped input should be at the end
+        :AcceptAnything \. ; If the Keyword ':.' is encountered, any character is accepted
+        :Body           '(| :Keyword :Char :Grouping :NotPredicate :AnyNot :AwareFunction :Function)
+        :Grouping       '(| :Sequence :Either :ZeroOrMore)
+        :Sequence       [\[                     :_* :Body '(* [:_* :Body])  :_* \]]
+        :Either         [\( \|                  :_  :Body '(* [:_* :Body])  :_* \)]
+        :NotPredicate   [\( \!                  :_  :Body                   :_* \)]
+        :ZeroOrMore     [\( \*                  :_  :Body                   :_* \)]
+        :AnyNot         [\( \%                  :_  :Body                   :_* \)]
+        :AwareFunction  [\( \a :_ :CljReaderFn                              :_* \)]
+        :Function       [\( \f :_ :CljReaderFn  :_  :Body                   :_* \)]
+        :CljReaderFn    [\# \< '(% \>) '(* (% \>)) \>]
+        :Whitespace                 '(| \space \newline \return \tab \,)
+        :Char                       [\\ (list '| (pegs "tab") (pegs "space") (pegs "newline") (pegs "return") '(% \space))]
+        :AmotoenSymbol              [:NonNumericCharacter '(* :AlphanumericCharactersPlus)] ; _Not_ the same as a Clojure Symbol, though it should be a proper subset
+        :NonNumericCharacter        (list '% (lpegs '| "0123456789"))
+        :AlphanumericCharactersPlus (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!-_?.")})
 
 (defn- either
     "Returns the result of the first element in 'n' to successfully process something from 'w'."
@@ -87,7 +88,10 @@
                 (rest n)))))
 
 (defn- any-not
-    "See comments in code. Success if failure, failure if success."
+    "This will accept anything that is not 'b'. For instance, '(% :B) would accept 
+     any single character that is not whatever matches :B. Success if failure, failure if success.
+     It will successfully match any single character if :B fails, and it will fail to match any 
+     single character if :B succeeds."
     [b g w]
     (let [p (gp w)]
         (if (or (pegasus b g w) (end w))
@@ -95,12 +99,12 @@
             (m w)))) ; If we fail and aren't at the end, then we accept the current char
 
 (defn debug
-    "Very very inefficient and useful in some cases.
+    "Very very inefficient but useful in some cases.
      Prints out 'i' number of characters from 'w' followed by 'n', 
      and then resets the position in 'w' as if nothing had been consumed."
     [n w i]
     (let [p (gp w)]
-        (println ">> " (pr-str (apply str (doall (take i (repeatedly #(try (m w) (catch Exception e ""))))))) ":" n)
+        (println ">> " (pr-str (apply str (doall (take  i (repeatedly #(try (m w) (catch Exception e ""))))))) ":" n)
         (sp w p)))
 
 (defn- try-char [n w]

@@ -7,59 +7,139 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns com.lithinos.amotoen.grammars.minimark
+    (:use [clojure.pprint])
     (:use [com.lithinos.amotoen.core]))
+
+(defn containing [s b e] [s b (list '* b) e])
 
 (defn delimited
     ([m] (delimited m m))
-    ([s e] [s [(list '% e) (list '* (list '% e))] e]))
+    ([b e] (delimited b e e))
+    ([s b e] (containing s (list '% b) e)))
+
+(defn delimited-body [d b] (delimited (pegs d) b (pegs d)))
+
+(defn a-frequency-ordered-char [] ; Semi-frequency-ordered
+    (lpegs '| "etaoinsrh,.?bcdfgjklmpquvwxyz023456789~`@#$%&*()+}]|:;<>/\""))
+
+(defn one-or-more [b] [b (list '* b)])
+
+(defn one-or-more-not [b] [(list '% b) (list '* (list '% b))])
 
 (def grammar {
-;Bulk
-    :Content                [:Element '(* :Element) :$]
-    :Element                '(| :_+ :Alphanumeric :Markup :.)
-    :Markup                 '(| :HRule :MDash :List :SS :U :H4 :H3 :H2 :H1 :B :I :Href :Pre)
-    :Markup-Guard           (list '! (list '| :HRule :MDash :Unordered-List-Marker :Ordered-List-Marker
-                                    \^ (pegs "__") (pegs "====") (pegs "===") (pegs "==") \= (pegs "'''") (pegs "''") \[ (pegs "{{{")))
-    :Non-Markup             [:Markup-Guard :Any-Char]
-    :NM+                    [:Non-Markup '(* :Non-Markup)]
-; Whitespace
-    :N                      \newline
-    :_                      \space
-    :_*                     '(* :_)
-    :_+                     [:_ '(* :_)]
-; Odds-n-Ends
-    :Any-Char               '(| :Empty-Line :Escaped-Char :.)
-    :Empty-Line             [:N :N]
-    :Escaped-Char           [\! (pegs "ABCDEFGHIJKLMNOPQRSTUVWXYZ!\\[=]")]
-    :Alphanumeric           (pegs "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789") ; No markup ever starts with an alphanumeric character
-;Links
-    :Href                   '(| :Href-Straight :Href-Explained)
-        :Href-Straight      [\[ :Href-Body \]]
-        :Href-Explained     [\[ :Href-Text :_ :Href-Body \]]
-            :Href-Body      [:Href-Body-Part '(* :Href-Body-Part)]
-            :Href-Body-Part '(% (| \] \space))
-            :Href-Text      ['(% \space) '(* (% \space))]
-;Lists
-    :Unordered-List-Marker  (pegs "-- ")
-    :Ordered-List-Marker    (pegs "-. ")
-    :List                   '(| :Ordered-List :Unordered-List)
-    :Ordered-List           [:_* :Ordered-List-Marker :List-Body '(* [:_* :Ordered-List-Marker :List-Body])]
-    :Unordered-List         [:_* :Unordered-List-Marker :List-Body '(* [:_* :Unordered-List-Marker :List-Body])]
-        :List-Body          [:List-Chunk '(* :List-Chunk)]
-            :List-Chunk     '(| :SS :U :B :I :Href :Pre :.)
-;Superscript
-    :SS                     [\^ :SS-Body \^]
-        :SS-Body            ['(! \^) :SS-Chunk '(* [(! \^) :SS-Chunk])]
-        :SS-Chunk           '(| :U :B :I :Href :.)
-;Pre
-    :Pre                    (delimited (pegs "{{{") (pegs "}}}"))
-;Remaining
-    :H1                     (delimited \=)
-    :H2                     (delimited (pegs "=="))
-    :H3                     (delimited (pegs "==="))
-    :H4                     (delimited (pegs "===="))
-    :B                      (delimited (pegs "'''"))
-    :I                      (delimited (pegs "''"))
-    :U                      (delimited (pegs "__"))
-    :HRule                  (pegs "----")
-    :MDash                  (pegs "---")})
+    :Content '(* (| :SafeChar :Markup :UnsafeChar))
+    :Markup '(| :HRule :MDash :List :SS :U :B :I :Href :Pre :H4 :H3 :H2 :H1)
+        :HRule (pegs "----")
+        :MDash (pegs "---")
+        :List '(| :OrderedList :UnorderedList)
+            :OrderedList    (one-or-more [(pegs "1. ") :ListBody])
+            :UnorderedList  (one-or-more [(pegs "-- ") :ListBody])
+                :ListBody [:ListContent \newline '(* (| \newline \space \tab))]
+                :ListContent '(* (| :ListSafeChar :SS :U :B :I :Href :Pre (% \newline)))
+        :SS (delimited \^)
+        :H4 (delimited-body "====" \=)
+        :H3 (delimited-body "===" \=)
+        :H2 (delimited-body "==" \=)
+        :H1 (delimited-body "=" \=)
+        :B (delimited (pegs "'''"))
+        :I (delimited (pegs "''"))
+        :U (delimited (pegs "__"))
+        :Pre (containing (pegs "{{{") :PreContent (pegs "}}}"))
+            :PreContent '(| [\! \}] (% [\} \} \}]))
+        :Href [\[ (list '| (delimited \[ \]) :HrefExplained) \]]
+            :HrefExplained [(one-or-more-not \space) \space (one-or-more-not \])]
+    :ListSafeChar (list '| \space :EscapedChar (a-frequency-ordered-char) \tab)
+    :SafeChar (list '| :EmptyLine :ListSafeChar \newline)
+        :EmptyLine [\newline \newline]
+        :EscapedChar [\! :UnsafeChar]
+    :UnsafeChar (lpegs '| "ETAOINSRH1BCDFGJKLMPQUVWXYZ!\\[={_^'-")
+})
+
+(defn list-safe-to-html [l] (if (map? l) (first (vals l)) l))
+
+(defn safe-to-html [l] (if (map? l) (first (vals l)) l))
+
+(defn content-to-html [l]
+    (cond
+        (map? l)    (first (vals l))
+        (seq? l)   (apply str (map content-to-html l))
+        true        l))
+
+(defn one-or-more-to-str [l]
+    (if (char? (second l))
+        (apply str l)
+        (reduce (fn [a b] (str a b))
+                (first l)
+                (second l))))
+
+(defn delimited-to-html
+    ([l c] (delimited-to-html l c "span"))
+    ([l c t] (if (not (nil? l))
+                (str "<" t " class='" c "'>" (one-or-more-to-str (butlast (rest l))) "</" t ">"))))
+
+(defn href-to-html [v]
+    (if (not (nil? v))
+        (if (vector? (second v))
+            (let [l (one-or-more-to-str (butlast (rest (second v))))]
+                (str "<a href='" l "'>" l "</a>"))
+            (let [inside        (first (vals (second v)))
+                  link          (one-or-more-to-str (first inside))
+                  explanation   (one-or-more-to-str (last inside))]
+                (str "<a href='" link "'>" explanation "</a>")))))
+
+(defn pre-to-html[v]
+    (if (not (nil? v))
+        (let [v (butlast (rest v))]
+            (if (= \newline (first (vals (first v))))
+                (str    "<div class='pre-block'>"
+                        (apply str (map #(first (vals %))
+                                        (butlast (second v))))
+                        "</div>")
+                (str    "<div class='pre-inline'>"             
+                        (reduce (fn [a b] (str a (first (vals b))))
+                                (first (vals (first v)))
+                                (second v))
+                        "</div>")))))
+
+(defn list-to-html
+    ([v] (list-to-html v "ol"))
+    ([v t]
+        (if (not (nil? v))
+            (str    "<" t ">"
+                    (reduce (fn [a b] (if (empty? b) a (str a (str "<li>" (first (vals (last b))) "</li>"))))
+                            (str "<li>" (first (vals (last (first v)))) "</li>")
+                            (rest v))
+                    "</" t ">"))))
+
+(defn list-content-to-html [l]
+    (reduce (fn [a b] (str a (if (map? b) (first (vals b)) b)))
+            (first l)
+            (rest l)))
+
+(def #^{:private true} to-html-fns {:Content        content-to-html
+                                    :EscapedChar    #(first (vals (second %)))
+                                    :ListSafeChar   list-safe-to-html
+                                    :SafeChar       safe-to-html
+                                    :MDash          #(if (not (nil? %)) "&mdash;")
+                                    :HRule          #(if (not (nil? %)) "<hr />")
+                                    :SS             #(delimited-to-html % "superscript")
+                                    :U              #(delimited-to-html % "underline")
+                                    :B              #(delimited-to-html % "bold")
+                                    :I              #(delimited-to-html % "italic")
+                                    :H4             #(delimited-to-html % "H4" "div")
+                                    :H3             #(delimited-to-html % "H3" "div")
+                                    :H2             #(delimited-to-html % "H2" "div")
+                                    :H1             #(delimited-to-html % "H1" "div")
+                                    :Pre            pre-to-html
+                                    :Href           href-to-html
+                                    :List           #(first (vals %))
+                                    :Markup         #(first (vals %))
+                                    :ListBody       #(first (vals (first %)))
+                                    :OrderedList    list-to-html
+                                    :UnorderedList  #(list-to-html % "ul")
+                                    :ListContent    #(list-content-to-html %)
+                                    :EmptyLine      #(if (not (nil? %)) "<div class='empty-line' />") })
+
+(defn to-html
+    ([s] (to-html s grammar))
+    ([s g] (post-process :Content g (wrap-string s) to-html-fns)))
