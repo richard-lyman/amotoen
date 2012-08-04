@@ -30,11 +30,12 @@
      The function 'charAt' is part of the mechanism to walk through the string."
     ([#^String s] (wrap-string s 0))
     ([#^String s j] ; 'j' is where we currently are in the input... 'i' was skipped since it was too close to 'i'nput
-        (let [a (int-array 1 j)]
+        (let [a     (int-array 1 j)
+              size  (count s)]
             (reify IAmotoen
                 (gp     [t]     (aget a 0))
                 (sp     [t k]   (aset-int a 0 k))
-                (end    [t]     (= (aget a 0) (count s)))
+                (end    [t]     (= (aget a 0) size))
                 (c      [t]     (try (.charAt s (aget a 0)) (catch Exception e nil)))
                 (m      [t]     (let [r (c t)]
                                     (when (nil? r) (throw (Exception. "Consuming nil")))
