@@ -154,7 +154,7 @@
 
 (defn- list-of-one-element
     "Check to find lists containing only a single element.
-     Significantly faster than 'count'."
+     Significantly faster than 'count' in the worst-case."
     [r]
     (and
         (seq? r)
