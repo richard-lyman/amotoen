@@ -7,8 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns com.lithinos.amotoen.grammars.minimark
-    (:use [clojure.pprint])
-    (:use [com.lithinos.amotoen.core]))
+    (:use [com.lithinos.amotoen.core :only [pegs lpegs post-process wrap-string]]))
 
 (defn containing [s b e] [s b (list '* b) e])
 

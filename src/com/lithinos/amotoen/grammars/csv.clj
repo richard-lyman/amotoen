@@ -7,8 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns com.lithinos.amotoen.grammars.csv
-    (:use [clojure.pprint])
-    (:use [com.lithinos.amotoen.core]))
+    (:use [com.lithinos.amotoen.core :only [post-process wrap-string]]))
 
 (def grammar {
     :Document               [:Line '(* :Line) :$]
