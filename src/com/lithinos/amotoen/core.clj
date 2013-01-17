@@ -60,11 +60,12 @@
         :ProvidedSymbol '(| :EndOfInput :AcceptAnything)
         :EndOfInput     \$ ; If the Keyword ':$' is encountered, the wrapped input should be at the end
         :AcceptAnything \. ; If the Keyword ':.' is encountered, any character is accepted
-        :Body           '(| :Keyword :Char :Grouping :NotPredicate :AnyNot :AwareFunction :Function)
+        :Body           '(| :Keyword :Char :Grouping :NotPredicate :AndPredicate :AnyNot :AwareFunction :Function)
         :Grouping       '(| :Sequence :Either :ZeroOrMore)
         :Sequence       [\[                     :_* :Body '(* [:_* :Body])  :_* \]]
         :Either         [\( \|                  :_  :Body '(* [:_* :Body])  :_* \)]
         :NotPredicate   [\( \!                  :_  :Body                   :_* \)]
+        :AndPredicate   [\( \&                  :_  :Body '(* [:_* :Body])  :_* \)]
         :ZeroOrMore     [\( \*                  :_  :Body                   :_* \)]
         :AnyNot         [\( \%                  :_  :Body                   :_* \)]
         :AwareFunction  [\( \a :_ :CljReaderFn                              :_* \)]
@@ -152,6 +153,16 @@
             (do (sp w p) true)
             nil)))
 
+
+(defn- and-predicate
+    "Returns true if (pegasus b g w) succeeds, nil otherwise."
+    [b g w]
+    (let [p (gp w)
+          r (not (nil? (pegasus b g w)))]
+        (if (or r (end w))
+            (do (sp w p) true)
+            nil)))
+
 (defn- list-of-one-element
     "Check to find lists containing only a single element.
      Significantly faster than 'count' in the worst-case."
@@ -171,7 +182,8 @@
                         (= t '*)    (zero-or-more b g w)
                         (= t '!)    (not-predicate b g w)
                         (= t 'a)    (b g w)
-                        (= t 'f)    (b (pegasus (first (rest (rest n))) g w)))]
+                        (= t 'f)    (b (pegasus (first (rest (rest n))) g w))
+                        (= t '&)    (and-predicate b g w))]
         (if (list-of-one-element result)
             (first result)
             result)))
