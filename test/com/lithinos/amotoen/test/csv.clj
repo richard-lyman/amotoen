@@ -15,20 +15,20 @@
 
 (deftest one-drawback-of-vanilla-chars (is (= (to-clj " a   , b   , c   ") [["a   " "b   " "c   "]])))
 
-(deftest plain              (is (not (nil? (pegasus :Document grammar (wrap-string "a,b,c"))))))
-(deftest plain-multi-char   (is (not (nil? (pegasus :Document grammar (wrap-string "aaa,bbb,ccc"))))))
-(deftest plain-multi-line   (is (not (nil? (pegasus :Document grammar (wrap-string "a,b,c
+(deftest plain              (is (not (nil? (to-ast :Document grammar (wrap-string "a,b,c"))))))
+(deftest plain-multi-char   (is (not (nil? (to-ast :Document grammar (wrap-string "aaa,bbb,ccc"))))))
+(deftest plain-multi-line   (is (not (nil? (to-ast :Document grammar (wrap-string "a,b,c
                                                                                     x,y,z"))))))
-(deftest plain-multi-char-and-line  (is (not (nil? (pegasus :Document grammar (wrap-string "aaa,bbb,ccc
+(deftest plain-multi-char-and-line  (is (not (nil? (to-ast :Document grammar (wrap-string "aaa,bbb,ccc
                                                                                             xxx,yyy,zzz"))))))
-(deftest plain-multi-char-and-line+ (is (not (nil? (pegasus :Document grammar (wrap-string "aaa,bbb,ccc
+(deftest plain-multi-char-and-line+ (is (not (nil? (to-ast :Document grammar (wrap-string "aaa,bbb,ccc
                                                                                             iii,jjj,kkk
                                                                                             xxx,yyy,zzz"))))))
-(deftest single                 (is (not (nil? (pegasus :Document grammar               (wrap-string "'a','b','c'"))))))
-(deftest double-quote           (is (not (nil? (pegasus :Document grammar               (wrap-string "\"a\",\"b\",\"c\""))))))
-(deftest specified-comma-square (is (not (nil? (pegasus :Document (specified \, \[ \])  (wrap-string "[a],[b],[c]"))))))
-(deftest specified-pipe-square  (is (not (nil? (pegasus :Document (specified \| \[ \])  (wrap-string "[a]|[b]|[c]"))))))
-(deftest specified-pipe-plus    (is (not (nil? (pegasus :Document (specified \| \+ \+)  (wrap-string "+a+|+b+|+c+"))))))
+(deftest single                 (is (not (nil? (to-ast :Document grammar               (wrap-string "'a','b','c'"))))))
+(deftest double-quote           (is (not (nil? (to-ast :Document grammar               (wrap-string "\"a\",\"b\",\"c\""))))))
+(deftest specified-comma-square (is (not (nil? (to-ast :Document (specified \, \[ \])  (wrap-string "[a],[b],[c]"))))))
+(deftest specified-pipe-square  (is (not (nil? (to-ast :Document (specified \| \[ \])  (wrap-string "[a]|[b]|[c]"))))))
+(deftest specified-pipe-plus    (is (not (nil? (to-ast :Document (specified \| \+ \+)  (wrap-string "+a+|+b+|+c+"))))))
 
 (deftest to-clj-plain (is (= (to-clj "a,b,c") [["a" "b" "c"]])))
 
@@ -84,11 +84,11 @@
                                                                             +xxx+|+yyy+|+zzz+" (specified \| \+ \+))  [["aaa" "bbb" "ccc"] ["iii" "jjj" "kkk"] ["xxx" "yyy" "zzz"]])))
 
 
-(deftest with-vanilla-single                    (is (not (nil? (pegasus :Document grammar               (wrap-string "'a',b,'c'"))))))
-(deftest with-vanilla-double-quote              (is (not (nil? (pegasus :Document grammar               (wrap-string "\"a\",b,\"c\""))))))
-(deftest with-vanilla-specified-comma-square    (is (not (nil? (pegasus :Document (specified \, \[ \])  (wrap-string "[a],b,[c]"))))))
-(deftest with-vanilla-specified-pipe-square     (is (not (nil? (pegasus :Document (specified \| \[ \])  (wrap-string "[a]|b|[c]"))))))
-(deftest with-vanilla-specified-pipe-plus       (is (not (nil? (pegasus :Document (specified \| \+ \+)  (wrap-string "+a+|b|+c+"))))))
+(deftest with-vanilla-single                    (is (not (nil? (to-ast :Document grammar               (wrap-string "'a',b,'c'"))))))
+(deftest with-vanilla-double-quote              (is (not (nil? (to-ast :Document grammar               (wrap-string "\"a\",b,\"c\""))))))
+(deftest with-vanilla-specified-comma-square    (is (not (nil? (to-ast :Document (specified \, \[ \])  (wrap-string "[a],b,[c]"))))))
+(deftest with-vanilla-specified-pipe-square     (is (not (nil? (to-ast :Document (specified \| \[ \])  (wrap-string "[a]|b|[c]"))))))
+(deftest with-vanilla-specified-pipe-plus       (is (not (nil? (to-ast :Document (specified \| \+ \+)  (wrap-string "+a+|b|+c+"))))))
 
 (deftest with-vanilla-to-clj-single                  (is (= (to-clj "'a',b,'c'")                        [["a" "b" "c"]])))
 (deftest with-vanilla-to-clj-double                  (is (= (to-clj "\"a\",b,\"c\"")                    [["a" "b" "c"]])))
@@ -315,6 +315,6 @@ aaa,bbb,ccc
                         ["xxx" "yyy" "zzz"]
                         ["aaa" "bbb" "ccc"]
                         ["xxx" "yyy" "zzz"]])
-(def nightmare-grammar (specified (lpegs '| ",|") (lpegs '| "'\"[+") (lpegs '| "'\"]+")))
+(def nightmare-grammar (specified (ls '| ",|") (ls '| "'\"[+") (ls '| "'\"]+")))
 (deftest nightmare-string-to-clj                    (is (= (to-clj nightmare-string                 nightmare-grammar) nightmare-parsed)))
 (deftest nightmare-string-with-whitespace-to-clj    (is (= (to-clj nightmare-string-with-whitespace nightmare-grammar) nightmare-parsed)))

@@ -7,20 +7,20 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns com.lithinos.amotoen.grammars.json
-  (:use [com.lithinos.amotoen.core :only [pegs lpegs]]))
+  (:use [com.lithinos.amotoen.core :only [move ls]]))
 
 (defn json-control-character [g w]
-    false) ; Until the error messages about 'c' are fixed...
-;    (let [s #{  \u0000 \u0001 \u0002 \u0003 \u0004 \u0005 \u0006 \u0007 \u0008 \u0009 \u000A \u000B \u000C \u000D \u000E \u000F
-;                \u0010 \u0011 \u0012 \u0013 \u0014 \u0015 \u0016 \u0017 \u0018 \u0019 \u001A \u001B \u001C \u001D \u001E \u001F}]
-;        (if (contains? s (c w))
-;            (m w)
-;            nil)))
+    (let [s #{  \u0000 \u0001 \u0002 \u0003 \u0004 \u0005 \u0006 \u0007 \u0008 \u0009 \u000A \u000B \u000C \u000D \u000E \u000F
+                \u0010 \u0011 \u0012 \u0013 \u0014 \u0015 \u0016 \u0017 \u0018 \u0019 \u001A \u001B \u001C \u001D \u001E \u001F}
+          remaining (drop-while #(nil? (move w %)) s)]
+        (if (seq remaining)
+            (first remaining)
+            nil)))
 
 (def grammar {
     :_*                     '(* (| \newline \return \tab \space))
     :JSONText               [:_* '(| :JSONObject :Array) :_* :$]
-    :Value                  (list '| :JSONString :JSONObject :Array (pegs "true") (pegs "false") (pegs "null") :JSONNumber)
+    :Value                  (list '| :JSONString :JSONObject :Array "true" "false" "null" :JSONNumber)
 ; Objects
     :JSONObject             '(| :EmptyObject :ContainingObject)
         :EmptyObject        [\{ :_* \}]
@@ -42,15 +42,15 @@
     :Char                   '(| :EscapedChar [(! \") :NonEscapedChar])
         :EscapedChar        [\\ '(|   \" \\ \/ \b \f \n \r \t :Unicode)]
             :Unicode        [\u :HexDigit :HexDigit :HexDigit :HexDigit]
-            :HexDigit       (lpegs '| "0123456789ABCDEFabcdef")
+            :HexDigit       (ls '| "0123456789ABCDEFabcdef")
         :NonEscapedChar     :. ; This is OK since the only way it's used is with appropriate guards.
 ; Numbers
     :JSONNumber             '(| [:Int :Frac :Exp] [:Int :Exp] [:Int :Frac] :Int)
         :Int                '(| [\- :Digit1-9 :Digits] [\- :Digit] [:Digit1-9 :Digits] :Digit)
         :Frac               [\. :Digits]
         :Exp                [:ExpLeader :Digits]
-            :Digit          (lpegs '| "0123456789")
-            :Digit1-9       (lpegs '| "123456789")
+            :Digit          (ls '| "0123456789")
+            :Digit1-9       (ls '| "123456789")
             :Digits         [:Digit '(* :Digits)]
             :ExpLeader      ['(| \e \E) '(* (| \+ \-))]
 })

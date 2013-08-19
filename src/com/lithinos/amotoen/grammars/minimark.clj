@@ -7,7 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns com.lithinos.amotoen.grammars.minimark
-    (:use [com.lithinos.amotoen.core :only [pegs lpegs post-process wrap-string]]))
+    (:use [com.lithinos.amotoen.core :only [ls post-process wrap-string]]))
 
 (defn containing [s b e] [s b (list '* b) e])
 
@@ -16,10 +16,10 @@
     ([b e] (delimited b e e))
     ([s b e] (containing s (list '% b) e)))
 
-(defn delimited-body [d b] (delimited (pegs d) b (pegs d)))
+(defn delimited-body [d b] (delimited d b d))
 
 (defn a-frequency-ordered-char [] ; Semi-frequency-ordered
-    (lpegs '| "etaoinsrh,.?bcdfgjklmpquvwxyz023456789~`@#$%&*()+}]|:;<>/\""))
+    (ls '| "etaoinsrh,.?bcdfgjklmpquvwxyz023456789~`@#$%&*()+}]|:;<>/\""))
 
 (defn one-or-more [b] [b (list '* b)])
 
@@ -28,30 +28,30 @@
 (def grammar {
     :Content '(* (| :SafeChar :Markup :UnsafeChar))
     :Markup '(| :HRule :MDash :List :SS :U :B :I :Href :Pre :H4 :H3 :H2 :H1)
-        :HRule (pegs "----")
-        :MDash (pegs "---")
+        :HRule "----"
+        :MDash "---"
         :List '(| :OrderedList :UnorderedList)
-            :OrderedList    (one-or-more [(pegs "1. ") :ListBody])
-            :UnorderedList  (one-or-more [(pegs "-- ") :ListBody])
+            :OrderedList    (one-or-more ["1. " :ListBody])
+            :UnorderedList  (one-or-more ["-- " :ListBody])
                 :ListBody [:ListContent \newline '(* (| \newline \space \tab))]
                 :ListContent '(* (| :ListSafeChar :SS :U :B :I :Href :Pre (% \newline)))
         :SS (delimited \^)
         :H4 (delimited-body "====" \=)
         :H3 (delimited-body "===" \=)
         :H2 (delimited-body "==" \=)
-        :H1 (delimited-body "=" \=)
-        :B (delimited (pegs "'''"))
-        :I (delimited (pegs "''"))
-        :U (delimited (pegs "__"))
-        :Pre (containing (pegs "{{{") :PreContent (pegs "}}}"))
-            :PreContent '(| [\! \}] (% [\} \} \}]))
-        :Href [\[ (list '| (delimited \[ \]) :HrefExplained) \]]
-            :HrefExplained [(one-or-more-not \space) \space (one-or-more-not \])]
-    :ListSafeChar (list '| \space :EscapedChar (a-frequency-ordered-char) \tab)
-    :SafeChar (list '| :EmptyLine :ListSafeChar \newline)
+        :H1 (delimited-body "=" \=);
+        :B (delimited "'''");
+        :I (delimited "''");
+        :U (delimited "__");
+        :Pre (containing "{{{" :PreContent "}}}");
+            :PreContent '(| [\! \}] (% [\} \} \}]));
+        :Href [\[ (list '| (delimited \[ \]) :HrefExplained) \]];
+            :HrefExplained [(one-or-more-not \space) \space (one-or-more-not \])];
+    :ListSafeChar (list '| \space :EscapedChar (a-frequency-ordered-char) \tab);
+    :SafeChar (list '| :EmptyLine :ListSafeChar \newline);
         :EmptyLine [\newline \newline]
-        :EscapedChar [\! :UnsafeChar]
-    :UnsafeChar (lpegs '| "ETAOINSRH1BCDFGJKLMPQUVWXYZ!\\[={_^'-")
+        :EscapedChar [\! :UnsafeChar];
+    :UnsafeChar (ls '| "ETAOINSRH1BCDFGJKLMPQUVWXYZ!\\[={_^'-");
 })
 
 (defn list-safe-to-html [l] (if (map? l) (first (vals l)) l))

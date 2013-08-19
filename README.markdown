@@ -147,12 +147,12 @@ An example of this format using the CSV grammar and an input of just `a` is as f
 ```
 If the more common output is not available, or you'd like to work with an AST, you can generate your own AST.
 The following is only one of several different paths to producing an AST from a grammar and an input.
-One way is to call the Amotoen function 'pegasus' and provide three arguments.
-The first argument to pegasus is the key for the root rule in the grammar, the rule that should be run first.
+One way is to call the Amotoen function 'to-ast' and provide three arguments.
+The first argument to to-ast is the key for the root rule in the grammar, the rule that should be run first.
 The second argument is the grammar definition.
 The third argument is something that fulfils the IAmotoen protocol, and the provided 'wrap-string' function will do just that for Strings.
 Putting all these pieces together with the input from above of `a` you get:
-    ```(pegasus :Document grammar (wrap-string "a"))```
+    ```(to-ast :Document grammar (wrap-string "a"))```
 
 Much more information can be found in the tests for CSV, the com.lithinos.amotoen.test.csv package.
 
@@ -218,10 +218,10 @@ The grammar for Amotoen grammars is:
     :Function       [\( \f :_ :CljReaderFn  :_  :Body                   :_* \)]
     :CljReaderFn    [\# \< '(% \>) '(* (% \>)) \>]
     :Whitespace                 '(| \space \newline \return \tab \,)
-    :Char                       [\\ (list '| (pegs "tab") (pegs "space") (pegs "newline") (pegs "return") '(% \space))]
+    :Char                       [\\ (list '| "tab" "space" "newline" "return" '(% \space))]
     :AmotoenSymbol              [:NonNumericCharacter '(* :AlphanumericCharactersPlus)]
-    :NonNumericCharacter        (list '% (lpegs '| "0123456789"))
-    :AlphanumericCharactersPlus (lpegs '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!-_?.")
+    :NonNumericCharacter        (list '% (ls '| "0123456789"))
+    :AlphanumericCharactersPlus (ls '| "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:/*+!-_?.")
 }
 ```
 <h2>Recent Improvements</h2>
@@ -234,17 +234,17 @@ As an example:
  - Some function named 'custom-collapse' set to
     ```#(apply str %)```
  - Some grammar 'g' set to
-    ```{:S [(list 'f custom-collapse (pegs "abcabc"))]}```
+    ```{:S [(list 'f custom-collapse "abcabc")]}```
  - Some input 'i' set to 
     ```"abcabc"```
  - An invocation like...
-    ```(pegasus :S g (gen-ps i))```
+    ```(to-ast :S g (gen-ps i))```
  - ... should return...
     ```{:S ["abcabc"]}```
 
 Without supplying a custom collapse function:
  - Some grammar 'g' set to
-    ```{:S (pegs "abcabc")}```
+    ```{:S "abcabc"}```
  - Other things alike, the result should be
     ```{:S [\a \b \c \a \b \c]}```
 
@@ -252,17 +252,17 @@ Another example:
  - Some function named 'custom-collapse' set to
     ```#(apply str %)```
  - Some grammar 'g' set to
-    ```{:S [(list 'f custom-collapse '(* (lpegs '| "abc")))]}```
+    ```{:S [(list 'f custom-collapse '(* (ls '| "abc")))]}```
  - Some input 'i' set to 
     ```"aabbcc"```
  - An invocation like...
-    ```(pegasus :S g (gen-ps i))```
+    ```(to-ast :S g (gen-ps i))```
  - ... should return...
     ```{:S ["aabbcc"]}```
 
 Without supplying a custom collapse function:
  - Some grammar 'g' set to
-    ```{:S [(list '* (lpegs '| "abc"))]}```
+    ```{:S [(list '* (ls '| "abc"))]}```
  - Other things alike, the result should be
     ```{:S [(\a \a \b \b \c \c)]}```
 
