@@ -1,0 +1,76 @@
+
+Use golang 'scanner' libs
+
+The new grammar-grammar:
+ * Keeping the two 'special' Keywords: ':$', or End-of-input, and ':.', or Any-Rune
+ * Dropping the ValidKeywordChar
+ * Adding the OneOrMore Keyword
+ * Adding the String Keyword and expanding to the Escaped* and Escapable* Keywords
+{
+        :_              (| ' ' "\t" "\r" "\n")
+        :*              (* :_)
+        :+              (+ :_)
+        :Grammar        ['{' :* :Rule (* [:+ :Rule]) :* '}']
+        :Rule           [:Keyword :+ :Body]
+        :Keyword        [':' (+ (% :_)]
+        :Body           (| :Keyword :Char :String :Group)
+        :Char           ['\'' (| :EscapedChar (% :EscapableChar)) '\'']
+        :EscapedChar    ['\\' :EscapableChar]
+        :EscapableChar  (| '\'' '\\')
+        :String         ['"' (+ (| :EscapedStr (% :EscapableStr))) '"']
+        :EscapedStr     ['\\' :EscapableStr]
+        :EscapableStr   (| '\\' '"')
+        :Group          (| :Sequence :Either :ZeroOrMore :OneOrMore :AnyNot)
+        :Sequence       ['['     :* :Body (* [:* :Body]) :* ']']
+        :Either         ['(' '|' :+ :Body (* [:* :Body]) :* ')']
+        :ZeroOrMore     ['(' '*' :+ :Body                :* ')']
+        :OneOrMore      ['(' '+' :+ :Body                :* ')']
+        :AnyNot         ['(' '%' :+ :Body                :* ')']
+}
+
+There is a function that helps create an AST from a grammar and some input string.
+
+There is another function that helps walk the AST.
+
+http://play.golang.org/p/LAIo1ygttp
+package main
+
+import ("fmt"; "reflect")
+
+type B interface {isB()}
+type C int;                     func (c C) isB(){}
+type S string;                  func (s S) isB(){}
+type G interface {B;isG()}
+type Seq []B;                   func (seq Seq) isB(){}; func (seq Seq) isG(){}
+
+func NewSeq(b ...B) G {
+        return Seq(b)
+}
+
+func main() {
+        a := NewSeq(C(2), S("t"))
+        b := NewSeq(C(1), S("s"), a)
+        fmt.Printf("a: %#v\n", a)
+        fmt.Printf("b: %#v\n", b)
+        fmt.Println("Third part of b is a:", reflect.DeepEqual(b.(Seq)[2], a))
+}
+
+type AST []struct{Keyword, Body}
+type Keyword string
+type Body interface {
+        isBody()
+}
+type Group interface {
+        Body
+        isGroupable()
+}
+
+type Char rune;         func (c Char)           isBody(){}
+type String string;     func (s String)         isBody(){}
+type Sequence   []Body; func (s Sequence)       isBody(){}; func (s Sequence)   isGroupable(){}; func NewSequence(      b ...Body) Group { return Sequence(b) }
+type Either       Body; func (e Either)         isBody(){}; func (e Either)     isGroupable(){}
+type ZeroOrMore []Body; func (z ZeroOrMore)     isBody(){}; func (z ZeroOrMore) isGroupable(){}; func NewZeroOrMore(    b ...Body) Group { return ZeroOrMore(b) }
+type OneOrMore  []Body; func (o OneOrMore)      isBody(){}; func (o OneOrMore)  isGroupable(){}; func NewOneOrMore(     b ...Body) Group { return OneOrMore(b) }
+type AnyNot       Body; func (a AnyNot)         isBody(){}; func (a AnyNot)     isGroupable(){}
+
+
