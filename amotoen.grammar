@@ -1,0 +1,25 @@
+newline := \u10
+space := \u20
+tab := \u09
+zws := *{space, tab}
+zwsn := *{space, tab, newline}
+grammar := +[zwsn, rule, zws, newline]
+rule := [key, zws, \:, \=, zws, ruleBody]
+key := [lower, *{lower, upper, number}]
+lower := >`abcdefghijklmnopqrstuvwxyz`
+upper := >`ABCDEFGHIJKLMNOPQRSTUVWXYZ`
+number := >`0123456789`
+ruleBody := {escapedUnicode, escapedRune, seq, either, eitherString, zeroOrMore, oneOrMore, anyNot, stringValue, key}
+ruleBodyList := [ruleBody, *[zws, \,, zws, ruleBody]]
+escapedUnicode := [\\, {shortUnicode, longUnicode}]
+shortUnicode := [\u, hexRune, hexRune]
+longUnicode := [\U, hexRune, hexRune, hexRune, hexRune]
+escapedRune := [\\, !\u00]
+seq := [\[, ruleBodyList, \]]
+either := [\{, ruleBodyList, \}]
+eitherString := [\>, \`, +!\`, \`]
+zeroOrMore := [\*, ruleBody]
+oneOrMore := [\+, ruleBody]
+anyNot := [\!, ruleBody]
+stringValue := [\`, !\`, *!\`, \`]
+hexRune := >`0123456789abcdefABCDEF`
