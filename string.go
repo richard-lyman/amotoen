@@ -6,11 +6,8 @@ import (
 	"strings"
 )
 
-func ES(arg string) State { return &esState{"", arg} }
-func R(arg rune) State    { return &rState{"", arg} }
-
-func ESL(label string, arg string) State { return &esState{label, arg} }
-func RL(label string, arg rune) State    { return &rState{label, arg} }
+func ES(arg string) State { return &esState{inner: arg} }
+func R(arg rune) State    { return &rState{inner: arg} }
 
 func StringInput(s string) Input {
 	return &stringInput{strings.NewReader(s)}
@@ -92,8 +89,19 @@ func (i *stringInput) Debug(s State) {
 }
 
 type esState struct {
-	label string
-	inner string
+	label       string
+	inner       string
+	postHandler PostHandler
+}
+
+func (s *esState) Post(f PostHandler) State {
+	s.postHandler = f
+	return s
+}
+
+func (s *esState) Label(label string) State {
+	s.label = label
+	return s
 }
 
 func (s *esState) String() string {
@@ -115,7 +123,7 @@ func (s *esState) Handle(input Input) (Tree, error) {
 	r := tmp.(rune)
 	if strings.ContainsRune(s.inner, r) {
 		input.Consume(1)
-		return &node{runeContent(r), nil}, nil
+		return &node{runeContent(r), s, nil}, nil
 	} else {
 		input.Revert(previous)
 		return nil, newError(s, input, "esState failed", nil)
@@ -123,8 +131,19 @@ func (s *esState) Handle(input Input) (Tree, error) {
 }
 
 type rState struct {
-	label string
-	inner rune
+	label       string
+	inner       rune
+	postHandler PostHandler
+}
+
+func (s *rState) Post(f PostHandler) State {
+	s.postHandler = f
+	return s
+}
+
+func (s *rState) Label(label string) State {
+	s.label = label
+	return s
 }
 
 func (s *rState) String() string {
@@ -146,7 +165,7 @@ func (s *rState) Handle(input Input) (Tree, error) {
 	r := tmp.(rune)
 	if s.inner == r {
 		input.Consume(1)
-		return &node{runeContent(r), nil}, nil
+		return &node{runeContent(r), s, nil}, nil
 	} else {
 		input.Revert(previous)
 		return nil, newError(s, input, "rState failed", nil)

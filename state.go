@@ -1,8 +1,19 @@
 package amotoen
 
 type oState struct {
-	label string
-	inner State
+	label       string
+	inner       State
+	postHandler PostHandler
+}
+
+func (s *oState) Post(f PostHandler) State {
+	s.postHandler = f
+	return s
+}
+
+func (s *oState) Label(label string) State {
+	s.label = label
+	return s
 }
 
 func (s *oState) String() string {
@@ -15,7 +26,7 @@ func (s *oState) String() string {
 
 func (s *oState) Handle(input Input) (result Tree, err error) {
 	input.Debug(s)
-	result = &node{stringContent(s.label), nil}
+	result = &node{stringContent(s.label), s, nil}
 	previous := input.Cursor()
 	tmp, err := s.inner.Handle(input)
 	if err != nil {
@@ -36,8 +47,19 @@ func (s *oState) Handle(input Input) (result Tree, err error) {
 }
 
 type zState struct {
-	label string
-	inner State
+	label       string
+	inner       State
+	postHandler PostHandler
+}
+
+func (s *zState) Post(f PostHandler) State {
+	s.postHandler = f
+	return s
+}
+
+func (s *zState) Label(label string) State {
+	s.label = label
+	return s
 }
 
 func (s *zState) String() string {
@@ -50,7 +72,7 @@ func (s *zState) String() string {
 
 func (s *zState) Handle(input Input) (result Tree, err error) {
 	input.Debug(s)
-	result = &node{stringContent(s.label), nil}
+	result = &node{stringContent(s.label), s, nil}
 	for {
 		previous := input.Cursor()
 		tmp, err := s.inner.Handle(input)
@@ -64,8 +86,19 @@ func (s *zState) Handle(input Input) (result Tree, err error) {
 }
 
 type sState struct {
-	label string
-	inner []State
+	label       string
+	inner       []State
+	postHandler PostHandler
+}
+
+func (s *sState) Post(f PostHandler) State {
+	s.postHandler = f
+	return s
+}
+
+func (s *sState) Label(label string) State {
+	s.label = label
+	return s
 }
 
 func (s *sState) String() string {
@@ -79,7 +112,7 @@ func (s *sState) String() string {
 func (s *sState) Handle(input Input) (Tree, error) {
 	input.Debug(s)
 	previous := input.Cursor()
-	result := &node{stringContent(s.label), nil}
+	result := &node{stringContent(s.label), s, nil}
 	for _, child := range s.inner {
 		tmp, err := child.Handle(input)
 		if err != nil {
@@ -92,8 +125,19 @@ func (s *sState) Handle(input Input) (Tree, error) {
 }
 
 type nState struct {
-	label string
-	inner State
+	label       string
+	inner       State
+	postHandler PostHandler
+}
+
+func (s *nState) Post(f PostHandler) State {
+	s.postHandler = f
+	return s
+}
+
+func (s *nState) Label(label string) State {
+	s.label = label
+	return s
 }
 
 func (s *nState) String() string {
@@ -116,15 +160,26 @@ func (s *nState) Handle(input Input) (Tree, error) {
 		}
 		r := tmp.(rune)
 		input.Consume(1)
-		return &node{runeContent(r), nil}, nil
+		return &node{runeContent(r), s, nil}, nil
 	}
 	input.Revert(previous)
 	return nil, newError(s, input, "nState failed", nil)
 }
 
 type eState struct {
-	label string
-	inner []State
+	label       string
+	inner       []State
+	postHandler PostHandler
+}
+
+func (s *eState) Post(f PostHandler) State {
+	s.postHandler = f
+	return s
+}
+
+func (s *eState) Label(label string) State {
+	s.label = label
+	return s
 }
 
 func (s *eState) String() string {

@@ -6,7 +6,16 @@ import (
 
 type node struct {
 	content  Stringer
+	source   State
 	children []Tree
+}
+
+func (n *node) Process() interface{} {
+	return nil // n.source.processor(n)
+}
+
+func (n *node) Source() State {
+	return n.source
 }
 
 func (n *node) Append(t Tree) Tree {

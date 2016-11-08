@@ -22,8 +22,12 @@ func Manual(root State, input Input, mustConsumeAll bool) Tree {
 	return result
 }
 
+type PostHandler func(Tree) (Tree, error)
+
 type State interface {
 	Handle(Input) (Tree, error)
+	Label(string) State
+	Post(PostHandler) State
 	Stringer
 }
 
@@ -39,13 +43,17 @@ type Input interface {
 
 type Tree interface {
 	Append(Tree) Tree
+	Source() State
+	Process() interface{}
 	Stringer
 }
 
 type DeferredState struct{ inner State }
 
-func (s *DeferredState) String() string     { return s.inner.String() }
-func (s *DeferredState) Set(newState State) { s.inner = newState }
+func (s *DeferredState) Post(ph PostHandler) State { s.inner.Post(ph); return s }
+func (s *DeferredState) Label(label string) State  { return s }
+func (s *DeferredState) String() string            { return s.inner.String() }
+func (s *DeferredState) Set(newState State)        { s.inner = newState }
 func (s *DeferredState) Handle(input Input) (Tree, error) {
 	t, err := s.inner.Handle(input)
 	return t, err
@@ -59,17 +67,11 @@ func c(args ...State) {
 	}
 }
 
-func N(arg State) State     { c(arg); return &nState{"", arg} }
-func E(args ...State) State { c(args...); return &eState{"", args} }
-func O(arg State) State     { c(arg); return &oState{"", arg} }
-func S(args ...State) State { c(args...); return &sState{"", args} }
-func Z(arg State) State     { c(arg); return &zState{"", arg} }
-
-func NL(label string, arg State) State     { c(arg); return &nState{label, arg} }
-func EL(label string, args ...State) State { c(args...); return &eState{label, args} }
-func OL(label string, arg State) State     { c(arg); return &oState{label, arg} }
-func SL(label string, args ...State) State { c(args...); return &sState{label, args} }
-func ZL(label string, arg State) State     { c(arg); return &zState{label, arg} }
+func N(arg State) State     { c(arg); return &nState{inner: arg} }
+func E(args ...State) State { c(args...); return &eState{inner: args} }
+func O(arg State) State     { c(arg); return &oState{inner: arg} }
+func S(args ...State) State { c(args...); return &sState{inner: args} }
+func Z(arg State) State     { c(arg); return &zState{inner: arg} }
 
 type Stringer interface {
 	String() string
