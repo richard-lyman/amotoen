@@ -22,12 +22,18 @@ func Manual(root State, input Input, mustConsumeAll bool) Tree {
 	return result
 }
 
-type PostHandler func(Tree) (Tree, error)
+type PostResult struct {
+	Content interface{}
+	Err     error
+}
+
+type PostHandler func(Tree) PostResult
 
 type State interface {
 	Handle(Input) (Tree, error)
 	Label(string) State
 	Post(PostHandler) State
+	PostHandle(Tree) PostResult
 	Stringer
 }
 
@@ -50,10 +56,11 @@ type Tree interface {
 
 type DeferredState struct{ inner State }
 
-func (s *DeferredState) Post(ph PostHandler) State { s.inner.Post(ph); return s }
-func (s *DeferredState) Label(label string) State  { return s }
-func (s *DeferredState) String() string            { return s.inner.String() }
-func (s *DeferredState) Set(newState State)        { s.inner = newState }
+func (s *DeferredState) PostHandle(t Tree) PostResult { return s.inner.PostHandle(t) }
+func (s *DeferredState) Post(ph PostHandler) State    { s.inner.Post(ph); return s }
+func (s *DeferredState) Label(label string) State     { return s }
+func (s *DeferredState) String() string               { return s.inner.String() }
+func (s *DeferredState) Set(newState State)           { s.inner = newState }
 func (s *DeferredState) Handle(input Input) (Tree, error) {
 	t, err := s.inner.Handle(input)
 	return t, err

@@ -6,6 +6,10 @@ type oState struct {
 	postHandler PostHandler
 }
 
+func (s *oState) PostHandle(t Tree) PostResult {
+	return s.postHandler(t)
+}
+
 func (s *oState) Post(f PostHandler) State {
 	s.postHandler = f
 	return s
@@ -52,6 +56,10 @@ type zState struct {
 	postHandler PostHandler
 }
 
+func (s *zState) PostHandle(t Tree) PostResult {
+	return s.postHandler(t)
+}
+
 func (s *zState) Post(f PostHandler) State {
 	s.postHandler = f
 	return s
@@ -91,6 +99,10 @@ type sState struct {
 	postHandler PostHandler
 }
 
+func (s *sState) PostHandle(t Tree) PostResult {
+	return s.postHandler(t)
+}
+
 func (s *sState) Post(f PostHandler) State {
 	s.postHandler = f
 	return s
@@ -128,6 +140,10 @@ type nState struct {
 	label       string
 	inner       State
 	postHandler PostHandler
+}
+
+func (s *nState) PostHandle(t Tree) PostResult {
+	return s.postHandler(t)
 }
 
 func (s *nState) Post(f PostHandler) State {
@@ -170,6 +186,10 @@ type eState struct {
 	label       string
 	inner       []State
 	postHandler PostHandler
+}
+
+func (s *eState) PostHandle(t Tree) PostResult {
+	return s.postHandler(t)
 }
 
 func (s *eState) Post(f PostHandler) State {

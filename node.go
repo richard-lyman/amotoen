@@ -19,6 +19,10 @@ func (n *node) Source() State {
 }
 
 func (n *node) Append(t Tree) Tree {
+	// It's expected that when a Tree is provided to append
+	// ... it is finished - it's ready to be post-processed...
+	// We can access the post-processor through the state which is in the
+	// ... source attribute
 	n.children = append(n.children, t)
 	return t
 }

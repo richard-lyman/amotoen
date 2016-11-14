@@ -94,6 +94,10 @@ type esState struct {
 	postHandler PostHandler
 }
 
+func (s *esState) PostHandle(t Tree) PostResult {
+	return s.postHandler(t)
+}
+
 func (s *esState) Post(f PostHandler) State {
 	s.postHandler = f
 	return s
@@ -134,6 +138,10 @@ type rState struct {
 	label       string
 	inner       rune
 	postHandler PostHandler
+}
+
+func (s *rState) PostHandle(t Tree) PostResult {
+	return s.postHandler(t)
 }
 
 func (s *rState) Post(f PostHandler) State {
